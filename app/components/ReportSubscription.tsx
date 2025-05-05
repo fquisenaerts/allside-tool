@@ -1,7 +1,10 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Mail } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -9,109 +12,101 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Mail } from "lucide-react"
-import { subscribeToReports } from "../actions/reports"
+import { Input } from "@/components/ui/input"
+import { subscribeToReports } from "@/app/actions/reports"
+import { useToast } from "@/hooks/use-toast"
 
 interface ReportSubscriptionProps {
   establishmentId?: string
   establishmentUrl: string
   establishmentName?: string
-  userId: string
 }
 
-export function ReportSubscription({
-  establishmentId,
-  establishmentUrl,
-  establishmentName = "this establishment",
-  userId,
-}: ReportSubscriptionProps) {
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [email, setEmail] = useState("")
+export function ReportSubscription({ establishmentId, establishmentUrl, establishmentName }: ReportSubscriptionProps) {
+  const [open, setOpen] = useState(false)
   const [frequency, setFrequency] = useState("weekly")
+  const [email, setEmail] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [success, setSuccess] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { toast } = useToast()
+  const [isOpen, setIsOpen] = useState(false)
 
-  const handleSubscribe = async () => {
-    if (!email) {
-      setError("Please enter your email address")
-      return
-    }
+  const handleClick = () => {
+    // For now, just log that the button was clicked
+    console.log("Receive Summary button clicked")
+    // In the future, this will open a modal for subscription
+    setIsOpen(!isOpen)
+  }
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
     setIsSubmitting(true)
-    setError(null)
 
     try {
       const result = await subscribeToReports({
-        userId,
-        email,
         frequency,
+        email,
         establishmentId,
         establishmentUrl,
         establishmentName,
       })
 
       if (result.success) {
-        setSuccess(true)
-        setTimeout(() => {
-          setIsDialogOpen(false)
-          setSuccess(false)
-        }, 2000)
+        toast({
+          title: "Subscription successful",
+          description: `You will receive ${frequency} reports for this establishment.`,
+        })
+        setOpen(false)
       } else {
-        setError(result.error || "Failed to subscribe to reports")
+        toast({
+          title: "Subscription failed",
+          description: result.error || "An error occurred. Please try again.",
+          variant: "destructive",
+        })
       }
-    } catch (err) {
-      console.error("Error subscribing to reports:", err)
-      setError("An unexpected error occurred")
+    } catch (error) {
+      toast({
+        title: "Subscription failed",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsSubmitting(false)
     }
   }
 
   return (
-    <>
-      <Button
-        variant="outline"
-        onClick={() => setIsDialogOpen(true)}
-        className="gap-2 bg-white text-black hover:bg-white/90"
-      >
-        <Mail className="h-4 w-4" />
-        Receive Summary
-      </Button>
-
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Subscribe to Summary Reports</DialogTitle>
-            <DialogDescription>
-              Receive regular summary reports for {establishmentName} directly to your email.
-            </DialogDescription>
-          </DialogHeader>
-
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button onClick={handleClick} variant="outline" className="ml-2 gap-2 bg-white text-black hover:bg-white/90">
+          <Mail className="h-4 w-4" />
+          Receive Summary
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Subscribe to Reports</DialogTitle>
+          <DialogDescription>Receive regular sentiment analysis reports for this establishment.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="email" className="text-right">
-                Email
-              </Label>
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email address</Label>
               <Input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your@email.com"
-                className="col-span-3"
+                required
               />
             </div>
-
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="frequency" className="text-right">
-                Frequency
-              </Label>
-              <RadioGroup id="frequency" value={frequency} onValueChange={setFrequency} className="col-span-3">
+            <div className="grid gap-2">
+              <Label>Report Frequency</Label>
+              <RadioGroup value={frequency} onValueChange={setFrequency}>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="weekly" id="weekly" />
                   <Label htmlFor="weekly">Weekly</Label>
@@ -123,22 +118,13 @@ export function ReportSubscription({
               </RadioGroup>
             </div>
           </div>
-
-          {error && <div className="text-sm font-medium text-red-500 dark:text-red-400">{error}</div>}
-
-          {success && (
-            <div className="text-sm font-medium text-green-500 dark:text-green-400">
-              Successfully subscribed to {frequency} reports!
-            </div>
-          )}
-
           <DialogFooter>
-            <Button type="submit" onClick={handleSubscribe} disabled={isSubmitting || success}>
+            <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? "Subscribing..." : "Subscribe"}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }

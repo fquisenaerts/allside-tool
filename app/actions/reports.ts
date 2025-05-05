@@ -1,9 +1,9 @@
 "use server"
 
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/server"
+import { cookies } from "next/headers"
 
 interface SubscribeToReportsParams {
-  userId: string
   email: string
   frequency: string
   establishmentId?: string
@@ -12,7 +12,6 @@ interface SubscribeToReportsParams {
 }
 
 export async function subscribeToReports({
-  userId,
   email,
   frequency,
   establishmentId,
@@ -21,22 +20,28 @@ export async function subscribeToReports({
 }: SubscribeToReportsParams) {
   try {
     // Validate inputs
-    if (!userId || !email || !frequency || !establishmentUrl) {
+    if (!email || !establishmentUrl || !frequency) {
       return { success: false, error: "Missing required fields" }
     }
 
-    // Check if user already has a subscription for this establishment
-    const { data: existingSubscription, error: fetchError } = await supabase
+    // Get the current user
+    const cookieStore = cookies()
+    const supabase = createClient(cookieStore)
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return { success: false, error: "You must be logged in to subscribe to reports" }
+    }
+
+    // Check if subscription already exists
+    const { data: existingSubscription } = await supabase
       .from("report_subscriptions")
       .select("*")
-      .eq("user_id", userId)
+      .eq("user_id", user.id)
       .eq("establishment_url", establishmentUrl)
       .single()
-
-    if (fetchError && fetchError.code !== "PGSQL_ERROR_NO_ROWS") {
-      console.error("Error checking for existing subscription:", fetchError)
-      return { success: false, error: "Failed to check for existing subscription" }
-    }
 
     if (existingSubscription) {
       // Update existing subscription
@@ -58,7 +63,7 @@ export async function subscribeToReports({
     } else {
       // Create new subscription
       const { error: insertError } = await supabase.from("report_subscriptions").insert({
-        user_id: userId,
+        user_id: user.id,
         email,
         frequency,
         establishment_id: establishmentId,

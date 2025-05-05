@@ -1,43 +1,40 @@
 import nodemailer from "nodemailer"
 
-// Email transporter configuration
-export const createTransporter = () => {
-  return nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: Number(process.env.EMAIL_PORT || "587"),
-    secure: process.env.EMAIL_SECURE === "true",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD,
-    },
-  })
+interface SendEmailParams {
+  to: string
+  subject: string
+  text: string
+  html: string
+  attachments?: Array<{
+    filename: string
+    content: Buffer | string
+    contentType?: string
+  }>
 }
 
-// Function to send an email
 export async function sendEmail({
   to,
   subject,
   text,
   html,
   attachments = [],
-}: {
-  to: string | string[]
-  subject: string
-  text: string
-  html: string
-  attachments?: Array<{
-    filename: string
-    content?: Buffer | string
-    path?: string
-    contentType?: string
-  }>
-}) {
+}: SendEmailParams): Promise<{ success: boolean; error?: string }> {
   try {
-    const transporter = createTransporter()
+    // Create a nodemailer transporter
+    const transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST,
+      port: Number.parseInt(process.env.EMAIL_PORT || "587"),
+      secure: process.env.EMAIL_SECURE === "true",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD,
+      },
+    })
 
+    // Send the email
     const info = await transporter.sendMail({
-      from: `"${process.env.EMAIL_FROM_NAME || "Allside"}" <${process.env.EMAIL_FROM || "noreply@example.com"}>`,
-      to: Array.isArray(to) ? to.join(", ") : to,
+      from: `"${process.env.EMAIL_FROM_NAME || "Allside Reports"}" <${process.env.EMAIL_FROM}>`,
+      to,
       subject,
       text,
       html,
@@ -45,9 +42,12 @@ export async function sendEmail({
     })
 
     console.log("Email sent:", info.messageId)
-    return { success: true, messageId: info.messageId }
+    return { success: true }
   } catch (error) {
     console.error("Error sending email:", error)
-    return { success: false, error }
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error occurred",
+    }
   }
 }

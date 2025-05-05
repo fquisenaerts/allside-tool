@@ -17,7 +17,6 @@ export function SaveEstablishment({ url, userId, analysisType, analysisResults }
   const [isSaving, setIsSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [name, setName] = useState<string>("Unnamed Establishment")
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -32,35 +31,34 @@ export function SaveEstablishment({ url, userId, analysisType, analysisResults }
       }
 
       // Extract name from URL or use a default
-      let establishmentName = "Unnamed Establishment"
+      let name = "Unnamed Establishment"
 
       if (url.includes("google.com/maps")) {
         // Try to extract business name from Google Maps URL
         const match = url.match(/\/place\/([^/]+)/)
         if (match && match[1]) {
-          establishmentName = decodeURIComponent(match[1].split("+").join(" ").split("@")[0])
+          name = decodeURIComponent(match[1].split("+").join(" ").split("@")[0])
         }
       } else if (url.includes("tripadvisor.com")) {
         // Try to extract hotel/restaurant name from TripAdvisor URL
         const match = url.match(/Reviews-[^-]+-([^-]+)/)
         if (match && match[1]) {
-          establishmentName = match[1].split("_").join(" ")
+          name = match[1].split("_").join(" ")
         }
       } else if (url.includes("booking.com")) {
         // Try to extract hotel name from Booking.com URL
         const match = url.match(/\/hotel\/[^/]+\/([^/.]+)/)
         if (match && match[1]) {
-          establishmentName = match[1].split("-").join(" ")
+          name = match[1].split("-").join(" ")
         }
       }
 
       // Clean up the name
-      establishmentName = establishmentName.charAt(0).toUpperCase() + establishmentName.slice(1)
-      setName(establishmentName)
+      name = name.charAt(0).toUpperCase() + name.slice(1)
 
       // Prepare data for saving
       const establishmentData = {
-        name: establishmentName,
+        name,
         url,
         userId: userId, // Ensure userId is correctly passed
         user_id: userId, // Add this as a backup
@@ -69,7 +67,7 @@ export function SaveEstablishment({ url, userId, analysisType, analysisResults }
       }
 
       console.log("Saving establishment with data:", {
-        name: establishmentName,
+        name,
         url,
         userId,
         type: analysisType || "Unknown",
@@ -100,7 +98,7 @@ export function SaveEstablishment({ url, userId, analysisType, analysisResults }
         {isSaving ? "Saving..." : saved ? "Saved!" : "Add to My Establishments"}
       </Button>
 
-      <ReportSubscription establishmentUrl={url} establishmentName={name} userId={userId} />
+      <ReportSubscription />
 
       {error && <div className="mt-2 text-sm text-red-600">{error}</div>}
     </div>
