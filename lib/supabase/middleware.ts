@@ -1,15 +1,11 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr"
+import { createServerClient } from "@supabase/ssr"
 import { type NextRequest, NextResponse } from "next/server"
 
 export function createClient(request: NextRequest) {
   // Create an unmodified response
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  })
+  const response = NextResponse.next()
 
-  // Create a Supabase client using the request and response
+  // Create a Supabase client
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -18,17 +14,11 @@ export function createClient(request: NextRequest) {
         get(name: string) {
           return request.cookies.get(name)?.value
         },
-        set(name: string, value: string, options: CookieOptions) {
-          // If the cookie is updated, update the cookies for the request and response
+        set(name: string, value: string, options: any) {
           request.cookies.set({
             name,
             value,
             ...options,
-          })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
           })
           response.cookies.set({
             name,
@@ -36,19 +26,15 @@ export function createClient(request: NextRequest) {
             ...options,
           })
         },
-        remove(name: string, options: CookieOptions) {
-          // If the cookie is removed, update the cookies for the request and response
-          request.cookies.delete({
+        remove(name: string, options: any) {
+          request.cookies.set({
             name,
+            value: "",
             ...options,
           })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          response.cookies.delete({
+          response.cookies.set({
             name,
+            value: "",
             ...options,
           })
         },

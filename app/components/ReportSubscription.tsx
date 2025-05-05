@@ -8,7 +8,7 @@ interface ReportSubscriptionProps {
   establishmentName?: string
 }
 
-export function ReportSubscription() {
+export function ReportSubscription({ establishmentId, establishmentUrl, establishmentName }: ReportSubscriptionProps) {
   return (
     <Button
       variant="outline"
