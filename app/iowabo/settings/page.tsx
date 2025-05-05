@@ -30,18 +30,18 @@ export default function SettingsPage() {
           setAdmin({
             email: "admin@example.com",
             created_at: new Date().toISOString(),
-            role: "Administrator"
+            role: "Administrator",
           })
         }
       } catch (err: any) {
         console.error("Error fetching admin data:", err)
         setError(`Error: ${err.message || "Unknown error"}`)
-        
+
         // Set sample admin data as fallback
         setAdmin({
           email: "admin@example.com",
           created_at: new Date().toISOString(),
-          role: "Administrator"
+          role: "Administrator",
         })
       } finally {
         setLoading(false)
@@ -72,12 +72,14 @@ export default function SettingsPage() {
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
-          <AlertDescription className="flex justify-between items-center">
-            <span>{error}</span>
-            <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Retry
-            </Button>
+          <AlertDescription>
+            <div className="flex justify-between items-center">
+              <span>{error}</span>
+              <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Retry
+              </Button>
+            </div>
           </AlertDescription>
         </Alert>
       )}
@@ -192,4 +194,39 @@ export default function SettingsPage() {
                 </div>
                 <Switch id="new-subscription" defaultChecked />
               </div>
-              \
+              <Button onClick={handleSave}>Save Changes</Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="security">
+          <Card>
+            <CardHeader>
+              <CardTitle>Security Settings</CardTitle>
+              <CardDescription>Manage your security preferences.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="current-password">Current Password</Label>
+                <Input id="current-password" type="password" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-password">New Password</Label>
+                <Input id="new-password" type="password" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Confirm New Password</Label>
+                <Input id="confirm-password" type="password" />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch id="two-factor" />
+                <Label htmlFor="two-factor">Enable Two-Factor Authentication</Label>
+              </div>
+              <Button onClick={handleSave}>Update Security Settings</Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}
