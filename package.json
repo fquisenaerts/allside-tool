@@ -69,12 +69,11 @@
     "path": "latest",
     "stripe": "latest",
     "@stripe/stripe-js": "latest",
-    "uuid": "latest",
-    "bcryptjs": "latest",
     "ai": "latest",
     "@ai-sdk/openai": "latest",
     "d3-cloud": "latest",
-    "nodemailer": "latest"
+    "nodemailer": "latest",
+    "@supabase/ssr": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

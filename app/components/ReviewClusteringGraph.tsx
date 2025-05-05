@@ -19,9 +19,16 @@ import { Button } from "@/components/ui/button"
 interface ReviewClusteringGraphProps {
   reviewData: any[]
   explanation?: string
+  clusters: {
+    id: number
+    x: number
+    y: number
+    z: number
+    name: string
+  }[]
 }
 
-export function ReviewClusteringGraph({ reviewData, explanation }: ReviewClusteringGraphProps) {
+export function ReviewClusteringGraph({ reviewData, explanation, clusters }: ReviewClusteringGraphProps) {
   const [selectedCluster, setSelectedCluster] = useState<string | null>(null)
 
   // Process the data to create clusters

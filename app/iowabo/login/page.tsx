@@ -4,246 +4,97 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Logo } from "@/app/components/Logo"
-import { AlertTriangle, CheckCircle, RefreshCw } from "lucide-react"
+import { loginBackoffice } from "../auth"
 
-export default function BackofficeLoginPage() {
+export default function Login() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [directLoading, setDirectLoading] = useState(false)
-  const [debugInfo, setDebugInfo] = useState<any>(null)
-  const [showDebug, setShowDebug] = useState(false)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
 
   useEffect(() => {
-    // Check for URL parameters
-    const errorParam = searchParams.get("error")
-    const clearedParam = searchParams.get("cleared")
-
-    if (errorParam === "invalid_token") {
-      setError("Your session has expired or is invalid. Please log in again.")
+    // Check if user was just registered
+    const registered = searchParams?.get("registered")
+    if (registered === "true") {
+      setSuccessMessage("Registration successful! Please log in.")
     }
-
-    if (clearedParam === "true") {
-      setSuccess("Your session has been cleared. You can now log in again.")
-    }
-
-    // Clear any existing cookies on page load
-    clearAllBrowserData()
   }, [searchParams])
 
-  const handleServerLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
+    setIsLoading(true)
     setError(null)
-    setSuccess(null)
-    setDebugInfo(null)
 
     try {
-      const formData = new FormData()
-      formData.append("email", email)
-      formData.append("password", password)
+      const result = await loginBackoffice(email, password)
 
-      const response = await fetch("/api/backoffice-login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      })
-
-      const result = await response.json()
-
-      if (!response.ok || !result.success) {
+      if (result.success) {
+        router.push("/iowabo")
+      } else {
         setError(result.error || "Login failed")
-        setDebugInfo(result.details || null)
-        setLoading(false)
-        return
       }
-
-      // Force a hard navigation to the dashboard
-      window.location.href = "/iowabo"
-    } catch (error: any) {
-      setError(error.message || "An error occurred during login")
-      setDebugInfo(error)
-      setLoading(false)
+    } catch (err) {
+      console.error("Login error:", err)
+      setError("An unexpected error occurred")
+    } finally {
+      setIsLoading(false)
     }
-  }
-
-  const handleDirectLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setDirectLoading(true)
-    setError(null)
-    setSuccess(null)
-    setDebugInfo(null)
-
-    try {
-      const formData = new FormData()
-      formData.append("email", email)
-      formData.append("password", password)
-      formData.append("directLogin", "true")
-
-      // Use the server action for direct login
-      const result = await fetch("/api/backoffice-login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password, directLogin: true }),
-      }).then((res) => res.json())
-
-      if (!result.success) {
-        setError(result.error || "Login failed")
-        setDebugInfo(result.details || null)
-        setDirectLoading(false)
-        return
-      }
-
-      // Force a hard navigation to the dashboard
-      window.location.href = "/iowabo"
-    } catch (error: any) {
-      setError(error.message || "An error occurred during login")
-      setDebugInfo(error)
-      setDirectLoading(false)
-    }
-  }
-
-  const clearAllBrowserData = () => {
-    // Clear cookies for the current domain
-    document.cookie.split(";").forEach((c) => {
-      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/")
-    })
-
-    // Clear localStorage
-    try {
-      localStorage.clear()
-    } catch (e) {
-      console.error("Failed to clear localStorage:", e)
-    }
-
-    // Clear sessionStorage
-    try {
-      sessionStorage.clear()
-    } catch (e) {
-      console.error("Failed to clear sessionStorage:", e)
-    }
-  }
-
-  const handleClearBrowserData = () => {
-    clearAllBrowserData()
-    setSuccess("All browser data cleared. You can now try logging in again.")
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <div className="flex justify-center mb-4">
-            <Logo />
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100 p-4">
+      <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-md">
+        <h1 className="mb-6 text-center text-2xl font-bold">Backoffice Login</h1>
+
+        {successMessage && (
+          <div className="mb-4 rounded-md bg-green-50 p-4 text-sm text-green-700">{successMessage}</div>
+        )}
+
+        {error && <div className="mb-4 rounded-md bg-red-50 p-4 text-sm text-red-700">{error}</div>}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+            />
           </div>
-          <CardTitle className="text-2xl text-center">Admin Backoffice</CardTitle>
-          <CardDescription className="text-center">Enter your credentials to access the admin panel</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
 
-          {success && (
-            <Alert className="mb-4 bg-green-50 border-green-200">
-              <CheckCircle className="h-4 w-4 text-green-500" />
-              <AlertTitle className="text-green-700">Success</AlertTitle>
-              <AlertDescription className="text-green-600">{success}</AlertDescription>
-            </Alert>
-          )}
-
-          <form onSubmit={handleServerLogin}>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="admin@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-              <Button className="w-full" type="submit" disabled={loading || directLoading}>
-                {loading ? "Authenticating..." : "Login to Backoffice"}
-              </Button>
-
-              <Button
-                className="w-full"
-                variant="outline"
-                disabled={loading || directLoading}
-                onClick={handleDirectLogin}
-              >
-                {directLoading ? "Authenticating..." : "Try Direct Login"}
-              </Button>
-              <p className="text-xs text-gray-500 text-center">
-                Use this if normal login fails due to permission issues
-              </p>
-            </div>
-          </form>
-
-          {debugInfo && (
-            <div className="mt-4">
-              <Button variant="outline" size="sm" onClick={() => setShowDebug(!showDebug)} className="w-full">
-                {showDebug ? "Hide" : "Show"} Debug Info
-              </Button>
-              {showDebug && (
-                <div className="mt-2 p-2 bg-gray-100 rounded text-xs overflow-auto max-h-40">
-                  <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="mt-4">
-            <Button variant="outline" size="sm" onClick={handleClearBrowserData} className="w-full">
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Clear All Browser Data
-            </Button>
-            <p className="text-xs text-gray-500 mt-1 text-center">
-              This will clear all cookies, localStorage, and sessionStorage for this site
-            </p>
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+            />
           </div>
-        </CardContent>
-        <CardFooter className="flex flex-col space-y-2">
-          <div className="text-sm text-center text-gray-500">
-            Don't have an admin account?{" "}
-            <Link href="/iowabo/register" className="text-blue-600 hover:underline">
-              Register here
-            </Link>
+
+          <div>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            >
+              {isLoading ? "Logging in..." : "Log In"}
+            </button>
           </div>
-        </CardFooter>
-      </Card>
+        </form>
+      </div>
     </div>
   )
 }

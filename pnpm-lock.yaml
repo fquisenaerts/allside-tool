@@ -101,6 +101,9 @@ importers:
       '@supabase/auth-helpers-nextjs':
         specifier: latest
         version: 0.10.0(@supabase/supabase-js@2.49.4)
+      '@supabase/ssr':
+        specifier: latest
+        version: 0.6.1(@supabase/supabase-js@2.49.4)
       '@supabase/supabase-js':
         specifier: latest
         version: 2.49.4
@@ -110,9 +113,6 @@ importers:
       autoprefixer:
         specifier: ^10.4.20
         version: 10.4.20(postcss@8.0.0)
-      bcryptjs:
-        specifier: latest
-        version: 3.0.2
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -194,9 +194,6 @@ importers:
       tailwindcss-animate:
         specifier: ^1.0.7
         version: 1.0.7(tailwindcss@3.4.17)
-      uuid:
-        specifier: latest
-        version: 11.1.0
       vaul:
         specifier: ^0.9.6
         version: 0.9.6(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -1419,6 +1416,11 @@ packages:
   '@supabase/realtime-js@2.11.2':
     resolution: {integrity: sha512-u/XeuL2Y0QEhXSoIPZZwR6wMXgB+RQbJzG9VErA3VghVt7uRfSVsjeqd7m5GhX3JR6dM/WRmLbVR8URpDWG4+w==}
 
+  '@supabase/ssr@0.6.1':
+    resolution: {integrity: sha512-QtQgEMvaDzr77Mk3vZ3jWg2/y+D8tExYF7vcJT+wQ8ysuvOeGGjYbZlvj5bHYsj/SpC0bihcisnwPrM4Gp5G4g==}
+    peerDependencies:
+      '@supabase/supabase-js': ^2.43.4
+
   '@supabase/storage-js@2.7.1':
     resolution: {integrity: sha512-asYHcyDR1fKqrMpytAS1zjyEfvxuOIp1CIXX7ji4lHHcJKqyk+sLl/Vxgm4sN6u8zvuUtae9e4kDxQP2qrwWBA==}
 
@@ -1545,10 +1547,6 @@ packages:
     resolution: {integrity: sha512-I3yl4r9QB5ZRY3XuJVEPfc2XhZO6YweFPI+UovAzn+8/hb3oJ6lnysaFcjVpkCPfVWFUDvoZ8kmVDP7WyRtYtQ==}
     engines: {node: '>= 0.6.0'}
 
-  bcryptjs@3.0.2:
-    resolution: {integrity: sha512-k38b3XOZKv60C4E2hVsXTolJWfkGRMbILBIe2IBITXciy5bOsTKot5kDrf3ZfufQtQOUN5mXceUEpU1rTl9Uog==}
-    hasBin: true
-
   binary-extensions@2.3.0:
     resolution: {integrity: sha512-Ceh+7ox5qe7LJuLHoY0feh3pHuUDHAcRUeyL2VYghZwfpkNIy/+8Ocg0a3UuSoYzavmylwuLWQOf3hl0jjMMIw==}
     engines: {node: '>=8'}
@@ -1649,6 +1647,10 @@ packages:
   commander@7.2.0:
     resolution: {integrity: sha512-QrWXB+ZQSVPmIWIhtEO9H+gwHaMGYiF5ChvoJ+K9ZGHG/sVsa6yiesAD1GC/x46sET00Xlwo1u49RVVVzvcSkw==}
     engines: {node: '>= 10'}
+
+  cookie@1.0.2:
+    resolution: {integrity: sha512-9Kr/j4O16ISv8zBBhJoi4bXOYNTkFLOqSL3UDB0njXxCXNezjeyVrJyGOWtgfs/q2km1gwBcfH8q1yEGoMYunA==}
+    engines: {node: '>=18'}
 
   core-js@3.42.0:
     resolution: {integrity: sha512-Sz4PP4ZA+Rq4II21qkNqOEDTDrCvcANId3xpIgB34NDkWc3UduWj2dqEtN9yZIq8Dk3HyPI33x9sqqU5C8sr0g==}
@@ -2616,10 +2618,6 @@ packages:
 
   utrie@1.0.2:
     resolution: {integrity: sha512-1MLa5ouZiOmQzUbjbu9VmjLzn1QLXBhwpUa7kdLUQK+KQ5KA9I1vk5U4YHe/X2Ch7PYnJfWuWT+VbuxbGwljhw==}
-
-  uuid@11.1.0:
-    resolution: {integrity: sha512-0/A9rDy9P7cJ+8w1c9WD9V//9Wj15Ce2MPz8Ri6032usz+NfePxx5AcN3bN+r6ZL6jEo066/yNYB3tn4pQEx+A==}
-    hasBin: true
 
   vaul@0.9.6:
     resolution: {integrity: sha512-Ykk5FSu4ibeD6qfKQH/CkBRdSGWkxi35KMNei0z59kTPAlgzpE/Qf1gTx2sxih8Q05KBO/aFhcF/UkBW5iI1Ww==}
@@ -3857,6 +3855,11 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
+  '@supabase/ssr@0.6.1(@supabase/supabase-js@2.49.4)':
+    dependencies:
+      '@supabase/supabase-js': 2.49.4
+      cookie: 1.0.2
+
   '@supabase/storage-js@2.7.1':
     dependencies:
       '@supabase/node-fetch': 2.6.15
@@ -3983,8 +3986,6 @@ snapshots:
   base64-arraybuffer@1.0.2:
     optional: true
 
-  bcryptjs@3.0.2: {}
-
   binary-extensions@2.3.0: {}
 
   brace-expansion@2.0.1:
@@ -4098,6 +4099,8 @@ snapshots:
   commander@4.1.1: {}
 
   commander@7.2.0: {}
+
+  cookie@1.0.2: {}
 
   core-js@3.42.0:
     optional: true
@@ -5077,8 +5080,6 @@ snapshots:
     dependencies:
       base64-arraybuffer: 1.0.2
     optional: true
-
-  uuid@11.1.0: {}
 
   vaul@0.9.6(@types/react-dom@19.0.0)(@types/react@19.0.0)(react-dom@19.0.0(react@19.0.0))(react@19.0.0):
     dependencies:

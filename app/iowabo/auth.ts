@@ -71,3 +71,92 @@ export async function clearBackofficeToken() {
   cookies().delete("backoffice_token")
   return { success: true }
 }
+
+export async function loginBackoffice(email: string, password: string) {
+  try {
+    const supabase = createClient()
+
+    // Use Supabase auth to sign in
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (error) {
+      console.error("Login error:", error)
+      return { success: false, error: error.message }
+    }
+
+    if (!data.user) {
+      return { success: false, error: "No user returned from login" }
+    }
+
+    // Check if user has backoffice access
+    const { data: backofficeData, error: backofficeError } = await supabase
+      .from("backoffice_users")
+      .select("*")
+      .eq("user_id", data.user.id)
+      .single()
+
+    if (backofficeError || !backofficeData) {
+      console.error("Backoffice access error:", backofficeError)
+      return { success: false, error: "You do not have backoffice access" }
+    }
+
+    return {
+      success: true,
+      user: data.user,
+      backofficeUser: backofficeData,
+    }
+  } catch (err) {
+    console.error("Unexpected error during login:", err)
+    return { success: false, error: "An unexpected error occurred" }
+  }
+}
+
+export async function registerBackofficeUser(email: string, password: string, name: string, role: string) {
+  try {
+    const supabase = createClient()
+
+    // Create the user in Supabase Auth
+    const { data: userData, error: userError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name,
+          role,
+        },
+      },
+    })
+
+    if (userError) {
+      console.error("User creation error:", userError)
+      return { success: false, error: userError.message }
+    }
+
+    if (!userData.user) {
+      return { success: false, error: "No user was created" }
+    }
+
+    // Add the user to the backoffice_users table
+    const { error: backofficeError } = await supabase.from("backoffice_users").insert({
+      user_id: userData.user.id,
+      name,
+      email,
+      role,
+    })
+
+    if (backofficeError) {
+      console.error("Backoffice user creation error:", backofficeError)
+      // Try to clean up the auth user since we couldn't create the backoffice user
+      await supabase.auth.admin.deleteUser(userData.user.id)
+      return { success: false, error: backofficeError.message }
+    }
+
+    return { success: true, user: userData.user }
+  } catch (err) {
+    console.error("Unexpected error during registration:", err)
+    return { success: false, error: "An unexpected error occurred" }
+  }
+}

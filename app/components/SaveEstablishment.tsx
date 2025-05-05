@@ -60,8 +60,8 @@ export function SaveEstablishment({ url, userId, analysisType, analysisResults }
       const establishmentData = {
         name,
         url,
-        userId: userId, // Ensure userId is correctly passed
-        user_id: userId, // Add this as a backup
+        userId: userId,
+        user_id: userId,
         type: analysisType || "Unknown",
         analysisResults: analysisResults,
       }

@@ -7,9 +7,9 @@ CREATE TABLE IF NOT EXISTS report_subscriptions (
   establishment_id UUID REFERENCES establishments(id) ON DELETE CASCADE,
   establishment_url TEXT NOT NULL,
   establishment_name TEXT,
-  last_sent_at TIMESTAMP WITH TIME ZONE,
-  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  last_sent_at TIMESTAMP WITH TIME ZONE
 );
 
 -- Add index for faster lookups

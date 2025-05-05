@@ -1,77 +1,50 @@
 "use client"
 
-import { useMemo } from "react"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts"
 
 interface StrengthsWeaknessesBarChartProps {
-  data: any[]
-  type: "strengths" | "weaknesses"
-  explanation?: string
+  strengths: { name: string; value: number }[]
+  weaknesses: { name: string; value: number }[]
 }
 
-export function StrengthsWeaknessesBarChart({ data = [], type, explanation }: StrengthsWeaknessesBarChartProps) {
-  // Format the data for the chart
-  const chartData = useMemo(() => {
-    if (!data || data.length === 0) {
-      return [{ name: "No data available", value: 0 }]
-    }
-
-    // Map the data to the format expected by the chart
-    return (
-      data
-        .map((item) => {
-          if (type === "strengths") {
-            return {
-              name: item.strength || "Unknown",
-              value: item.count || 0,
-            }
-          } else {
-            return {
-              name: item.weakness || "Unknown",
-              value: item.count || 0,
-            }
-          }
-        })
-        // Sort by value in descending order
-        .sort((a, b) => b.value - a.value)
-        // Take only the top 5
-        .slice(0, 5)
-    )
-  }, [data, type])
-
-  // Define colors based on type
-  const barColor = type === "strengths" ? "#4CAF50" : "#F44336"
+export function StrengthsWeaknessesBarChart({ strengths, weaknesses }: StrengthsWeaknessesBarChartProps) {
+  // Sort strengths and weaknesses by value in descending order
+  const sortedStrengths = [...strengths].sort((a, b) => b.value - a.value).slice(0, 5)
+  const sortedWeaknesses = [...weaknesses].sort((a, b) => b.value - a.value).slice(0, 5)
 
   return (
-    <div className="w-full h-64">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart
-          layout="vertical"
-          data={chartData}
-          margin={{
-            top: 5,
-            right: 30,
-            left: 100, // Increased left margin for longer text
-            bottom: 5,
-          }}
-        >
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis type="number" />
-          <YAxis
-            type="category"
-            dataKey="name"
-            tick={{ fontSize: 12 }}
-            width={90} // Control the width of the Y-axis
-          />
-          <Tooltip formatter={(value) => [`${value} mentions`, type === "strengths" ? "Strength" : "Weakness"]} />
-          <Bar dataKey="value" name={type === "strengths" ? "Strengths" : "Weaknesses"}>
-            {chartData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={barColor} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-      {explanation && <p className="mt-4 text-sm text-gray-600">{explanation}</p>}
+    <div className="grid gap-4 md:grid-cols-2">
+      <Card>
+        <CardHeader>
+          <CardTitle>Top Strengths</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={sortedStrengths} layout="vertical">
+              <XAxis type="number" />
+              <YAxis type="category" dataKey="name" width={100} />
+              <Tooltip />
+              <Bar dataKey="value" fill="#4ade80" radius={[0, 4, 4, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Weaknesses cited</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={sortedWeaknesses} layout="vertical">
+              <XAxis type="number" />
+              <YAxis type="category" dataKey="name" width={100} />
+              <Tooltip />
+              <Bar dataKey="value" fill="#f87171" radius={[0, 4, 4, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
     </div>
   )
 }

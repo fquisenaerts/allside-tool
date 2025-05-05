@@ -1,66 +1,74 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs"
+import { createClient } from "@/lib/supabase/middleware"
 
-export async function middleware(req: NextRequest) {
-  const res = NextResponse.next()
-  const supabase = createMiddlewareClient({ req, res })
+export async function middleware(request: NextRequest) {
+  // Create a Supabase client configured to use cookies
+  const { supabase, response } = createClient(request)
 
-  // Check if user is authenticated
+  // Refresh session if expired - required for Server Components
+  // https://supabase.com/docs/guides/auth/auth-helpers/nextjs#managing-session-with-middleware
   const {
     data: { session },
   } = await supabase.auth.getSession()
 
-  // If user is not authenticated and trying to access protected routes
-  if (
-    !session &&
-    (req.nextUrl.pathname.startsWith("/analyze") || req.nextUrl.pathname.startsWith("/my-establishments"))
-  ) {
-    // Remove the special case for /analyze that was causing issues
-    const redirectUrl = new URL("/login", req.url)
-    redirectUrl.searchParams.set("redirect", req.nextUrl.pathname)
+  // Protected routes that require authentication
+  const protectedRoutes = ["/profile", "/my-establishments", "/subscription", "/analyze"]
+
+  // Check if the route is protected and user is not authenticated
+  const isProtectedRoute = protectedRoutes.some((route) => request.nextUrl.pathname.startsWith(route))
+
+  if (isProtectedRoute && !session) {
+    // Redirect to login page if trying to access protected route without auth
+    const redirectUrl = new URL("/login", request.url)
+    redirectUrl.searchParams.set("redirect", request.nextUrl.pathname)
     return NextResponse.redirect(redirectUrl)
   }
 
   // If user is authenticated and trying to access login/signup pages, redirect to analyze
-  if (session && (req.nextUrl.pathname === "/login" || req.nextUrl.pathname === "/signup")) {
-    const redirectUrl = new URL("/analyze", req.url)
+  if (session && (request.nextUrl.pathname === "/login" || request.nextUrl.pathname === "/signup")) {
+    const redirectUrl = new URL("/analyze", request.url)
     return NextResponse.redirect(redirectUrl)
   }
 
-  // If user is authenticated, check subscription status for certain features
-  if (session && req.nextUrl.pathname.startsWith("/analyze")) {
-    try {
-      const { data: subscription } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .eq("user_id", session.user.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single()
+  // Backoffice routes that require special authentication
+  const backofficeRoutes = ["/iowabo"]
 
-      // Store subscription info in request headers to be used by the page
-      if (subscription) {
-        const requestHeaders = new Headers(req.headers)
-        requestHeaders.set("x-subscription-status", subscription.status)
-        requestHeaders.set("x-subscription-plan", subscription.plan_id)
-        requestHeaders.set("x-subscription-features", JSON.stringify(subscription.features))
+  const isBackofficeRoute = backofficeRoutes.some((route) => request.nextUrl.pathname.startsWith(route))
 
-        return NextResponse.next({
-          request: {
-            headers: requestHeaders,
-          },
-        })
-      }
-    } catch (error) {
-      console.error("Error fetching subscription in middleware:", error)
-      // Continue even if there's an error fetching subscription
+  if (isBackofficeRoute && request.nextUrl.pathname !== "/iowabo/login") {
+    // Check if user has backoffice access
+    if (!session) {
+      // Redirect to backoffice login if not authenticated
+      return NextResponse.redirect(new URL("/iowabo/login", request.url))
+    }
+
+    // Check if user has backoffice access
+    const { data: backofficeUser } = await supabase
+      .from("backoffice_users")
+      .select("*")
+      .eq("user_id", session.user.id)
+      .single()
+
+    if (!backofficeUser) {
+      // Redirect to backoffice login if not authorized
+      return NextResponse.redirect(new URL("/iowabo/login", request.url))
     }
   }
 
-  return res
+  return response
 }
 
 export const config = {
-  matcher: ["/analyze/:path*", "/my-establishments/:path*", "/login", "/signup"],
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public (public files)
+     * - api (API routes)
+     */
+    "/((?!_next/static|_next/image|favicon.ico|public|api).*)",
+  ],
 }

@@ -4,205 +4,116 @@ import type React from "react"
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { backofficeRegister } from "../actions"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Logo } from "@/app/components/Logo"
+import { registerBackofficeUser } from "../auth"
 
-export default function BackofficeRegister() {
+export default function Register() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [registrationCode, setRegistrationCode] = useState("")
+  const [name, setName] = useState("")
+  const [role, setRole] = useState("admin")
+  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [showSqlInstructions, setShowSqlInstructions] = useState(false)
-  const [fixingRlsIssue, setFixingRlsIssue] = useState(false)
   const router = useRouter()
 
-  const handleRegister = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
+    setIsLoading(true)
     setError(null)
 
     try {
-      const formData = new FormData()
-      formData.append("email", email)
-      formData.append("password", password)
-      formData.append("confirmPassword", confirmPassword)
-      formData.append("registrationCode", registrationCode)
+      const result = await registerBackofficeUser(email, password, name, role)
 
-      const result = await backofficeRegister(formData)
-
-      if (!result.success) {
+      if (result.success) {
+        router.push("/iowabo/login?registered=true")
+      } else {
         setError(result.error || "Registration failed")
-
-        // If the table doesn't exist, show SQL instructions
-        if (result.tableExists === false) {
-          setShowSqlInstructions(true)
-        }
-
-        // If there's an RLS issue, show RLS fix instructions
-        if (result.error && result.error.includes("row-level security policy")) {
-          setFixingRlsIssue(true)
-        }
-
-        return
       }
-
-      // Force a hard navigation to the dashboard
-      window.location.href = "/iowabo"
-    } catch (error: any) {
-      setError(error.message || "An error occurred during registration")
+    } catch (err) {
+      console.error("Registration error:", err)
+      setError("An unexpected error occurred")
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <div className="flex justify-center mb-4">
-            <Logo />
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100 p-4">
+      <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-md">
+        <h1 className="mb-6 text-center text-2xl font-bold">Register Backoffice User</h1>
+
+        {error && <div className="mb-4 rounded-md bg-red-50 p-4 text-sm text-red-700">{error}</div>}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+              Name
+            </label>
+            <input
+              id="name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+            />
           </div>
-          <CardTitle className="text-2xl text-center">Register Admin Account</CardTitle>
-          <CardDescription className="text-center">Create a new admin account for the backoffice</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
 
-          {fixingRlsIssue && (
-            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-md">
-              <h3 className="font-semibold text-amber-800 mb-2">Row-Level Security Issue</h3>
-              <p className="text-sm text-amber-700 mb-2">
-                There's an RLS policy issue with the backoffice_admins table. Please follow these steps to fix it:
-              </p>
-              <ol className="text-sm text-amber-700 list-decimal pl-5 space-y-1">
-                <li>Go to your Supabase dashboard</li>
-                <li>Navigate to the SQL Editor</li>
-                <li>
-                  Copy the SQL from the file{" "}
-                  <code className="bg-amber-100 px-1 rounded">app/iowabo/fix_backoffice_rls.sql</code>
-                </li>
-                <li>Paste and run the SQL in the editor</li>
-                <li>Return to this page and try registering again</li>
-              </ol>
-            </div>
-          )}
-
-          {showSqlInstructions && !fixingRlsIssue && (
-            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-md">
-              <h3 className="font-semibold text-amber-800 mb-2">Database Setup Required</h3>
-              <p className="text-sm text-amber-700 mb-2">
-                The backoffice_admins table doesn't exist in your database. Please follow these steps:
-              </p>
-              <ol className="text-sm text-amber-700 list-decimal pl-5 space-y-1">
-                <li>Go to your Supabase dashboard</li>
-                <li>Navigate to the SQL Editor</li>
-                <li>
-                  Copy the SQL from the file{" "}
-                  <code className="bg-amber-100 px-1 rounded">app/iowabo/create_backoffice_table.sql</code>
-                </li>
-                <li>Paste and run the SQL in the editor</li>
-                <li>Return to this page and try registering again</li>
-              </ol>
-            </div>
-          )}
-
-          <form onSubmit={handleRegister}>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="admin@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="registrationCode">Registration Code</Label>
-                <Input
-                  id="registrationCode"
-                  type="text"
-                  placeholder="Enter the admin registration code"
-                  value={registrationCode}
-                  onChange={(e) => setRegistrationCode(e.target.value)}
-                  required
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  You need a valid registration code to create an admin account
-                </p>
-              </div>
-              <Button className="w-full" type="submit" disabled={loading}>
-                {loading ? "Registering..." : "Register Admin Account"}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-        <CardFooter className="flex flex-col space-y-2">
-          <div className="text-sm text-center text-gray-500">
-            Already have an admin account?{" "}
-            <Link href="/iowabo/login" className="text-blue-600 hover:underline">
-              Login here
-            </Link>
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+            />
           </div>
-          <div className="mt-4 text-xs text-center">
-            <button
-              onClick={() => {
-                setShowSqlInstructions(!showSqlInstructions)
-                setFixingRlsIssue(false)
-              }}
-              className="text-gray-500 hover:text-gray-700 underline"
-              type="button"
+
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={8}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="role" className="block text-sm font-medium text-gray-700">
+              Role
+            </label>
+            <select
+              id="role"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
             >
-              {showSqlInstructions ? "Hide Setup Instructions" : "Show Setup Instructions"}
-            </button>
-            {" | "}
+              <option value="admin">Admin</option>
+              <option value="editor">Editor</option>
+              <option value="viewer">Viewer</option>
+            </select>
+          </div>
+
+          <div>
             <button
-              onClick={() => {
-                setFixingRlsIssue(!fixingRlsIssue)
-                setShowSqlInstructions(false)
-              }}
-              className="text-gray-500 hover:text-gray-700 underline"
-              type="button"
+              type="submit"
+              disabled={isLoading}
+              className="flex w-full justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
             >
-              {fixingRlsIssue ? "Hide RLS Fix Instructions" : "Show RLS Fix Instructions"}
+              {isLoading ? "Registering..." : "Register"}
             </button>
           </div>
-        </CardFooter>
-      </Card>
+        </form>
+      </div>
     </div>
   )
 }
