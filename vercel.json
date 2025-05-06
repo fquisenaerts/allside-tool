@@ -1,12 +1,34 @@
 {
-  "version": 2,
+  "crons": [
+    {
+      "path": "/api/send-scheduled-reports?apiKey=$REPORTS_API_KEY&frequency=weekly&batch=0",
+      "schedule": "0 9 * * 1"
+    },
+    {
+      "path": "/api/send-scheduled-reports?apiKey=$REPORTS_API_KEY&frequency=weekly&batch=1",
+      "schedule": "15 9 * * 1"
+    },
+    {
+      "path": "/api/send-scheduled-reports?apiKey=$REPORTS_API_KEY&frequency=weekly&batch=2",
+      "schedule": "30 9 * * 1"
+    },
+    {
+      "path": "/api/send-scheduled-reports?apiKey=$REPORTS_API_KEY&frequency=monthly&batch=0",
+      "schedule": "0 9 1 * *"
+    },
+    {
+      "path": "/api/send-scheduled-reports?apiKey=$REPORTS_API_KEY&frequency=monthly&batch=1",
+      "schedule": "15 9 1 * *"
+    },
+    {
+      "path": "/api/send-scheduled-reports?apiKey=$REPORTS_API_KEY&frequency=monthly&batch=2",
+      "schedule": "30 9 1 * *"
+    }
+  ],
   "buildCommand": "pnpm build",
   "installCommand": "pnpm install",
   "framework": "nextjs",
   "outputDirectory": ".next",
-  "regions": ["iad1"],
-  "cleanUrls": true,
-  "trailingSlash": false,
   "headers": [
     {
       "source": "/api/(.*)",
@@ -16,27 +38,12 @@
         { "key": "Access-Control-Allow-Methods", "value": "GET,OPTIONS,PATCH,DELETE,POST,PUT" },
         {
           "key": "Access-Control-Allow-Headers",
-          "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version"
+          "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization"
         }
       ]
     }
   ],
-  "crons": [
-    {
-      "path": "/api/send-scheduled-reports?apiKey=$REPORTS_API_KEY&frequency=weekly",
-      "schedule": "0 9 * * 1"
-    },
-    {
-      "path": "/api/send-scheduled-reports?apiKey=$REPORTS_API_KEY&frequency=monthly",
-      "schedule": "0 9 1 * *"
-    },
-    {
-      "path": "/api/send-scheduled-reports?apiKey=$REPORTS_API_KEY&frequency=weekly",
-      "schedule": "*/15 * * * *"
-    },
-    {
-      "path": "/api/send-scheduled-reports?apiKey=$REPORTS_API_KEY&frequency=monthly",
-      "schedule": "*/15 * * * *"
-    }
-  ]
+  "regions": ["iad1"],
+  "cleanUrls": true,
+  "trailingSlash": false
 }
