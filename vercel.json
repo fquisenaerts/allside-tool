@@ -1,4 +1,26 @@
 {
+  "version": 2,
+  "buildCommand": "pnpm build",
+  "installCommand": "pnpm install",
+  "framework": "nextjs",
+  "outputDirectory": ".next",
+  "regions": ["iad1"],
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Credentials", "value": "true" },
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET,OPTIONS,PATCH,DELETE,POST,PUT" },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version"
+        }
+      ]
+    }
+  ],
   "crons": [
     {
       "path": "/api/send-scheduled-reports?apiKey=$REPORTS_API_KEY&frequency=weekly",
@@ -7,6 +29,14 @@
     {
       "path": "/api/send-scheduled-reports?apiKey=$REPORTS_API_KEY&frequency=monthly",
       "schedule": "0 9 1 * *"
+    },
+    {
+      "path": "/api/send-scheduled-reports?apiKey=$REPORTS_API_KEY&frequency=weekly",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/send-scheduled-reports?apiKey=$REPORTS_API_KEY&frequency=monthly",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

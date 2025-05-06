@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase"
 import { analyzeSentiment } from "@/app/actions"
 import { sendEmail } from "@/app/utils/email"
 
-export const maxDuration = 300 // Set maximum execution time to 5 minutes
+export const maxDuration = 60 // Set maximum execution time to 60 seconds (maximum allowed)
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
       .from("report_subscriptions")
       .select("*")
       .eq("frequency", frequency)
+      .limit(5) // Process only 5 subscriptions per execution to stay within time limit
 
     if (error) {
       console.error("Error fetching subscriptions:", error)
@@ -41,83 +42,92 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Process each subscription (up to 10 at a time to avoid timeouts)
-    const batchSize = 10
-    const results = []
+    // Process each subscription
+    const results = await Promise.allSettled(
+      subscriptions.map(async (subscription) => {
+        try {
+          // Analyze the establishment
+          const analysisResults = await analyzeSentiment({
+            type: "url",
+            content: subscription.establishment_url,
+          })
 
-    for (let i = 0; i < subscriptions.length; i += batchSize) {
-      const batch = subscriptions.slice(i, i + batchSize)
-
-      const batchResults = await Promise.allSettled(
-        batch.map(async (subscription) => {
-          try {
-            // Analyze the establishment
-            const analysisResults = await analyzeSentiment({
-              type: "url",
-              content: subscription.establishment_url,
-            })
-
-            if (!analysisResults) {
-              throw new Error("Failed to analyze establishment")
-            }
-
-            // Send email with the report summary
-            const emailResult = await sendEmail({
-              to: subscription.email,
-              subject: `Your ${frequency} report for ${subscription.establishment_name || "your establishment"}`,
-              text: `
-                Hello,
-                
-                Here is your ${frequency} sentiment analysis report for ${subscription.establishment_name || "your establishment"}.
-                
-                This report provides insights into customer reviews and sentiment over the past ${frequency === "weekly" ? "week" : "month"}.
-                
-                Thank you for using Allside!
-              `,
-              html: `
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                  <h2>Your ${frequency} Report</h2>
-                  <p>Hello,</p>
-                  <p>Here is your ${frequency} sentiment analysis report for <strong>${subscription.establishment_name || "your establishment"}</strong>.</p>
-                  <p>This report provides insights into customer reviews and sentiment over the past ${frequency === "weekly" ? "week" : "month"}.</p>
-                  <p>Key findings:</p>
-                  <ul>
-                    <li>Overall sentiment: ${analysisResults.sentiment?.overall || "N/A"}</li>
-                    <li>Positive reviews: ${analysisResults.sentiment?.positive || "0"}%</li>
-                    <li>Negative reviews: ${analysisResults.sentiment?.negative || "0"}%</li>
-                  </ul>
-                  <p>To view the full report, please log in to your Allside account.</p>
-                  <p>Thank you for using Allside!</p>
-                </div>
-              `,
-            })
-
-            if (!emailResult.success) {
-              throw new Error(`Failed to send email: ${emailResult.error}`)
-            }
-
-            // Update last_sent_at
-            await supabase
-              .from("report_subscriptions")
-              .update({ last_sent_at: new Date().toISOString() })
-              .eq("id", subscription.id)
-
-            return { success: true, subscription_id: subscription.id }
-          } catch (err) {
-            console.error(`Error processing subscription ${subscription.id}:`, err)
-            return { success: false, subscription_id: subscription.id, error: err }
+          if (!analysisResults) {
+            throw new Error("Failed to analyze establishment")
           }
-        }),
-      )
 
-      results.push(...batchResults)
-    }
+          // Send email with the report summary
+          const emailResult = await sendEmail({
+            to: subscription.email,
+            subject: `Your ${frequency} report for ${subscription.establishment_name || "your establishment"}`,
+            text: `
+              Hello,
+              
+              Here is your ${frequency} sentiment analysis report for ${subscription.establishment_name || "your establishment"}.
+              
+              This report provides insights into customer reviews and sentiment over the past ${frequency === "weekly" ? "week" : "month"}.
+              
+              Thank you for using Allside!
+            `,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2>Your ${frequency} Report</h2>
+                <p>Hello,</p>
+                <p>Here is your ${frequency} sentiment analysis report for <strong>${subscription.establishment_name || "your establishment"}</strong>.</p>
+                <p>This report provides insights into customer reviews and sentiment over the past ${frequency === "weekly" ? "week" : "month"}.</p>
+                <p>Key findings:</p>
+                <ul>
+                  <li>Overall sentiment: ${analysisResults.sentiment?.overall || "N/A"}</li>
+                  <li>Positive reviews: ${analysisResults.sentiment?.positive || "0"}%</li>
+                  <li>Negative reviews: ${analysisResults.sentiment?.negative || "0"}%</li>
+                </ul>
+                <p>To view the full report, please log in to your Allside account.</p>
+                <p>Thank you for using Allside!</p>
+              </div>
+            `,
+          })
+
+          if (!emailResult.success) {
+            throw new Error(`Failed to send email: ${emailResult.error}`)
+          }
+
+          // Update last_sent_at
+          await supabase
+            .from("report_subscriptions")
+            .update({ last_sent_at: new Date().toISOString() })
+            .eq("id", subscription.id)
+
+          // Mark this subscription as processed
+          await supabase
+            .from("report_subscriptions")
+            .update({ processing_status: "processed" })
+            .eq("id", subscription.id)
+
+          return { success: true, subscription_id: subscription.id }
+        } catch (err) {
+          console.error(`Error processing subscription ${subscription.id}:`, err)
+
+          // Mark this subscription as failed
+          await supabase.from("report_subscriptions").update({ processing_status: "failed" }).eq("id", subscription.id)
+
+          return { success: false, subscription_id: subscription.id, error: err }
+        }
+      }),
+    )
+
+    // Update the remaining subscriptions to be processed in the next run
+    const { count } = await supabase
+      .from("report_subscriptions")
+      .select("*", { count: "exact", head: true })
+      .eq("frequency", frequency)
+      .is("processing_status", null)
 
     return NextResponse.json({
       success: true,
       processed: results.length,
       successful: results.filter((r) => r.status === "fulfilled" && r.value.success).length,
       failed: results.filter((r) => r.status === "rejected" || (r.status === "fulfilled" && !r.value.success)).length,
+      remaining: count || 0,
     })
   } catch (error) {
     console.error("Error in send-scheduled-reports:", error)
