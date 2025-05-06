@@ -72,8 +72,8 @@
     "ai": "latest",
     "@ai-sdk/openai": "latest",
     "d3-cloud": "latest",
-    "nodemailer": "latest",
-    "@supabase/ssr": "latest"
+    "@supabase/ssr": "latest",
+    "nodemailer": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
