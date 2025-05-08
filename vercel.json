@@ -1,30 +1,4 @@
 {
-  "crons": [
-    {
-      "path": "/api/send-scheduled-reports?apiKey=$REPORTS_API_KEY&frequency=weekly&batch=0",
-      "schedule": "0 9 * * 1"
-    },
-    {
-      "path": "/api/send-scheduled-reports?apiKey=$REPORTS_API_KEY&frequency=weekly&batch=1",
-      "schedule": "15 9 * * 1"
-    },
-    {
-      "path": "/api/send-scheduled-reports?apiKey=$REPORTS_API_KEY&frequency=weekly&batch=2",
-      "schedule": "30 9 * * 1"
-    },
-    {
-      "path": "/api/send-scheduled-reports?apiKey=$REPORTS_API_KEY&frequency=monthly&batch=0",
-      "schedule": "0 9 1 * *"
-    },
-    {
-      "path": "/api/send-scheduled-reports?apiKey=$REPORTS_API_KEY&frequency=monthly&batch=1",
-      "schedule": "15 9 1 * *"
-    },
-    {
-      "path": "/api/send-scheduled-reports?apiKey=$REPORTS_API_KEY&frequency=monthly&batch=2",
-      "schedule": "30 9 1 * *"
-    }
-  ],
   "buildCommand": "pnpm build",
   "installCommand": "pnpm install",
   "framework": "nextjs",
