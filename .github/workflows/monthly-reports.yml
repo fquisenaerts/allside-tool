@@ -15,7 +15,7 @@ jobs:
         run: |
           curl --request POST \
           --url "${SITE_URL}/api/send-scheduled-reports?frequency=monthly&batch=0" \
-          --header "Authorization: Bearer ${{ secrets.REPORTS_API_KEY }}"
+          --header "Authorization: ${{ secrets.REPORTS_API_KEY }}"
       
       - name: Wait for 5 minutes
         run: sleep 300
@@ -24,7 +24,7 @@ jobs:
         run: |
           curl --request POST \
           --url "${SITE_URL}/api/send-scheduled-reports?frequency=monthly&batch=1" \
-          --header "Authorization: Bearer ${{ secrets.REPORTS_API_KEY }}"
+          --header "Authorization: ${{ secrets.REPORTS_API_KEY }}"
       
       - name: Wait for 5 minutes
         run: sleep 300
@@ -33,4 +33,4 @@ jobs:
         run: |
           curl --request POST \
           --url "${SITE_URL}/api/send-scheduled-reports?frequency=monthly&batch=2" \
-          --header "Authorization: Bearer ${{ secrets.REPORTS_API_KEY }}"
+          --header "Authorization: ${{ secrets.REPORTS_API_KEY }}"
