@@ -8,6 +8,6 @@ jobs:
       - name: Test weekly reports API
         run: |
           curl --request POST \
-          --url '${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/send-scheduled-reports?frequency=weekly&batch=0&limit=1' \
-          --header 'Authorization: Bearer ${{ secrets.REPORTS_API_KEY }}' \
+          --url "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/send-scheduled-reports?frequency=weekly&batch=0&limit=1" \
+          --header "Authorization: Bearer ${{ secrets.REPORTS_API_KEY }}" \
           --verbose
