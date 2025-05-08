@@ -1,0 +1,17 @@
+name: Test Reports API with Test Key
+on:
+  workflow_dispatch: # This allows manual triggering
+jobs:
+  test-reports-api:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test weekly reports API with test key
+        run: |
+          # Remove trailing slash from URL if present
+          SITE_URL="${{ secrets.NEXT_PUBLIC_SITE_URL }}"
+          SITE_URL="${SITE_URL%/}"
+          
+          # Use a hardcoded test key
+          curl --request POST \
+          --url "${SITE_URL}/api/send-scheduled-reports?frequency=weekly&batch=0&limit=1&apiKey=test-reports-api-key" \
+          --verbose
