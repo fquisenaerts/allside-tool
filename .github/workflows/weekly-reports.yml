@@ -6,10 +6,15 @@ jobs:
   send-weekly-reports:
     runs-on: ubuntu-latest
     steps:
+      - name: Remove trailing slash from URL
+        run: echo "SITE_URL=${SITE_URL%/}" >> $GITHUB_ENV
+        env:
+          SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+      
       - name: Send weekly reports - Batch 1
         run: |
           curl --request POST \
-          --url "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/send-scheduled-reports?frequency=weekly&batch=0" \
+          --url "${SITE_URL}/api/send-scheduled-reports?frequency=weekly&batch=0" \
           --header "Authorization: Bearer ${{ secrets.REPORTS_API_KEY }}"
       
       - name: Wait for 5 minutes
@@ -18,7 +23,7 @@ jobs:
       - name: Send weekly reports - Batch 2
         run: |
           curl --request POST \
-          --url "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/send-scheduled-reports?frequency=weekly&batch=1" \
+          --url "${SITE_URL}/api/send-scheduled-reports?frequency=weekly&batch=1" \
           --header "Authorization: Bearer ${{ secrets.REPORTS_API_KEY }}"
       
       - name: Wait for 5 minutes
@@ -27,5 +32,5 @@ jobs:
       - name: Send weekly reports - Batch 3
         run: |
           curl --request POST \
-          --url "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/send-scheduled-reports?frequency=weekly&batch=2" \
+          --url "${SITE_URL}/api/send-scheduled-reports?frequency=weekly&batch=2" \
           --header "Authorization: Bearer ${{ secrets.REPORTS_API_KEY }}"
