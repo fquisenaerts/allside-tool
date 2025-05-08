@@ -1,0 +1,43 @@
+name: Test Reports Manually
+on:
+  workflow_dispatch: # This allows manual triggering
+    inputs:
+      frequency:
+        description: 'Frequency (weekly or monthly)'
+        required: true
+        default: 'weekly'
+        type: choice
+        options:
+          - weekly
+          - monthly
+      batch:
+        description: 'Batch number (0, 1, 2, etc.)'
+        required: true
+        default: '0'
+        type: string
+      limit:
+        description: 'Number of subscriptions to process'
+        required: true
+        default: '1'
+        type: string
+      test:
+        description: 'Test mode (true or false)'
+        required: true
+        default: 'true'
+        type: boolean
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run reports API
+        run: |
+          curl --request POST \
+          --url "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/send-scheduled-reports" \
+          --header "Content-Type: application/json" \
+          --header "Authorization: ${{ secrets.REPORTS_API_KEY }}" \
+          --data '{
+            "frequency": "${{ inputs.frequency }}",
+            "batch": ${{ inputs.batch }},
+            "limit": ${{ inputs.limit }},
+            "test": ${{ inputs.test }}
+          }'
