@@ -7,7 +7,11 @@ jobs:
     steps:
       - name: Test weekly reports API
         run: |
+          # Remove trailing slash from URL if present
+          SITE_URL="${{ secrets.NEXT_PUBLIC_SITE_URL }}"
+          SITE_URL="${SITE_URL%/}"
+          
           curl --request POST \
-          --url "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/send-scheduled-reports?frequency=weekly&batch=0&limit=1" \
+          --url "${SITE_URL}/api/send-scheduled-reports?frequency=weekly&batch=0&limit=1" \
           --header "Authorization: Bearer ${{ secrets.REPORTS_API_KEY }}" \
           --verbose
