@@ -3,31 +3,35 @@ on:
   schedule:
     - cron: '0 9 1 * *' # Run at 9 AM on the 1st day of each month
 jobs:
-  send-monthly-reports:
+  cron:
     runs-on: ubuntu-latest
     steps:
-      - name: Remove trailing slash from URL
-        run: echo "SITE_URL=${SITE_URL%/}" >> $GITHUB_ENV
-        env:
-          SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
-      
-      - name: Send monthly reports - Batch 1
+      - name: Monthly reports - Batch 1
         run: |
           curl --request POST \
-          --url "${SITE_URL}/api/send-scheduled-reports?frequency=monthly&batch=0&apiKey=${{ secrets.REPORTS_API_KEY }}"
+          --url '${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/send-scheduled-reports' \
+          --header 'Content-Type: application/json' \
+          --header 'Authorization: Bearer ${{ secrets.REPORTS_API_KEY }}' \
+          --data '{"frequency": "monthly", "batch": 0}'
       
       - name: Wait for 5 minutes
         run: sleep 300
       
-      - name: Send monthly reports - Batch 2
+      - name: Monthly reports - Batch 2
         run: |
           curl --request POST \
-          --url "${SITE_URL}/api/send-scheduled-reports?frequency=monthly&batch=1&apiKey=${{ secrets.REPORTS_API_KEY }}"
+          --url '${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/send-scheduled-reports' \
+          --header 'Content-Type: application/json' \
+          --header 'Authorization: Bearer ${{ secrets.REPORTS_API_KEY }}' \
+          --data '{"frequency": "monthly", "batch": 1}'
       
       - name: Wait for 5 minutes
         run: sleep 300
       
-      - name: Send monthly reports - Batch 3
+      - name: Monthly reports - Batch 3
         run: |
           curl --request POST \
-          --url "${SITE_URL}/api/send-scheduled-reports?frequency=monthly&batch=2&apiKey=${{ secrets.REPORTS_API_KEY }}"
+          --url '${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/send-scheduled-reports' \
+          --header 'Content-Type: application/json' \
+          --header 'Authorization: Bearer ${{ secrets.REPORTS_API_KEY }}' \
+          --data '{"frequency": "monthly", "batch": 2}'
