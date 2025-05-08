@@ -9,9 +9,9 @@ jobs:
       - name: Weekly reports - Batch 1
         run: |
           curl --request POST \
-          --url '${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/send-scheduled-reports' \
-          --header 'Content-Type: application/json' \
-          --header 'Authorization: Bearer ${{ secrets.REPORTS_API_KEY }}' \
+          --url "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/send-scheduled-reports" \
+          --header "Content-Type: application/json" \
+          --header "Authorization: ${{ secrets.REPORTS_API_KEY }}" \
           --data '{"frequency": "weekly", "batch": 0}'
       
       - name: Wait for 5 minutes
@@ -20,9 +20,9 @@ jobs:
       - name: Weekly reports - Batch 2
         run: |
           curl --request POST \
-          --url '${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/send-scheduled-reports' \
-          --header 'Content-Type: application/json' \
-          --header 'Authorization: Bearer ${{ secrets.REPORTS_API_KEY }}' \
+          --url "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/send-scheduled-reports" \
+          --header "Content-Type: application/json" \
+          --header "Authorization: ${{ secrets.REPORTS_API_KEY }}" \
           --data '{"frequency": "weekly", "batch": 1}'
       
       - name: Wait for 5 minutes
@@ -31,7 +31,7 @@ jobs:
       - name: Weekly reports - Batch 3
         run: |
           curl --request POST \
-          --url '${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/send-scheduled-reports' \
-          --header 'Content-Type: application/json' \
-          --header 'Authorization: Bearer ${{ secrets.REPORTS_API_KEY }}' \
+          --url "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/send-scheduled-reports" \
+          --header "Content-Type: application/json" \
+          --header "Authorization: ${{ secrets.REPORTS_API_KEY }}" \
           --data '{"frequency": "weekly", "batch": 2}'
