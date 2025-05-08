@@ -2,16 +2,13 @@ name: Test Reports API
 on:
   workflow_dispatch: # This allows manual triggering
 jobs:
-  test-reports-api:
+  test:
     runs-on: ubuntu-latest
     steps:
-      - name: Test weekly reports API with query parameter
+      - name: Test API with JSON payload
         run: |
-          # Remove trailing slash from URL if present
-          SITE_URL="${{ secrets.NEXT_PUBLIC_SITE_URL }}"
-          SITE_URL="${SITE_URL%/}"
-          
-          # Pass API key as a query parameter instead of a header
           curl --request POST \
-          --url "${SITE_URL}/api/send-scheduled-reports?frequency=weekly&batch=0&limit=1&apiKey=${{ secrets.REPORTS_API_KEY }}" \
-          --verbose
+          --url '${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/send-scheduled-reports' \
+          --header 'Content-Type: application/json' \
+          --header 'Authorization: Bearer ${{ secrets.REPORTS_API_KEY }}' \
+          --data '{"frequency": "weekly", "batch": 0, "limit": 1, "test": true}'
