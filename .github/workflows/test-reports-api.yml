@@ -11,7 +11,8 @@ jobs:
           SITE_URL="${{ secrets.NEXT_PUBLIC_SITE_URL }}"
           SITE_URL="${SITE_URL%/}"
           
+          # The API key needs to be passed directly, not as "Bearer TOKEN"
           curl --request POST \
           --url "${SITE_URL}/api/send-scheduled-reports?frequency=weekly&batch=0&limit=1" \
-          --header "Authorization: Bearer ${{ secrets.REPORTS_API_KEY }}" \
+          --header "Authorization: ${{ secrets.REPORTS_API_KEY }}" \
           --verbose
