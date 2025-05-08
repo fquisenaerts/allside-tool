@@ -1,0 +1,13 @@
+name: Test Reports API
+on:
+  workflow_dispatch: # This allows manual triggering
+jobs:
+  test-reports-api:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test weekly reports API
+        run: |
+          curl --request POST \
+          --url '${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/send-scheduled-reports?frequency=weekly&batch=0&limit=1' \
+          --header 'Authorization: Bearer ${{ secrets.REPORTS_API_KEY }}' \
+          --verbose
