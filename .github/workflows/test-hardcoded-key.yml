@@ -1,0 +1,19 @@
+name: Test Hardcoded Key
+on:
+  workflow_dispatch: # This allows manual triggering
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test with hardcoded key in query parameter
+        run: |
+          echo "Testing with hardcoded key in query parameter..."
+          curl --request GET \
+          --url "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/test-with-hardcoded-key?key=test-key-12345"
+          
+      - name: Test with hardcoded key in header
+        run: |
+          echo -e "\n\nTesting with hardcoded key in header..."
+          curl --request GET \
+          --url "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/test-with-hardcoded-key" \
+          --header "Authorization: test-key-12345"
