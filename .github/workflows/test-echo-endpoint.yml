@@ -1,0 +1,29 @@
+name: Test Echo Endpoint
+on:
+  workflow_dispatch: # This allows manual triggering
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Echo API key in header
+        run: |
+          echo "Testing with Authorization header..."
+          curl --request POST \
+          --url "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/echo-request" \
+          --header "Content-Type: application/json" \
+          --header "Authorization: ${{ secrets.REPORTS_API_KEY }}" \
+          --data '{"test": true}'
+          
+      - name: Echo API key in query parameter
+        run: |
+          echo -e "\n\nTesting with query parameter..."
+          curl --request GET \
+          --url "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/echo-request?apiKey=${{ secrets.REPORTS_API_KEY }}"
+          
+      - name: Echo API key in JSON body
+        run: |
+          echo -e "\n\nTesting with JSON body..."
+          curl --request POST \
+          --url "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/echo-request" \
+          --header "Content-Type: application/json" \
+          --data '{"apiKey": "${{ secrets.REPORTS_API_KEY }}"}'
