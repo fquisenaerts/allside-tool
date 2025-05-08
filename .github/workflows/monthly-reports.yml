@@ -9,8 +9,8 @@ jobs:
       - name: Send monthly reports - Batch 1
         run: |
           curl --request POST \
-          --url '${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/send-scheduled-reports?frequency=monthly&batch=0' \
-          --header 'Authorization: Bearer ${{ secrets.REPORTS_API_KEY }}'
+          --url "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/send-scheduled-reports?frequency=monthly&batch=0" \
+          --header "Authorization: Bearer ${{ secrets.REPORTS_API_KEY }}"
       
       - name: Wait for 5 minutes
         run: sleep 300
@@ -18,8 +18,8 @@ jobs:
       - name: Send monthly reports - Batch 2
         run: |
           curl --request POST \
-          --url '${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/send-scheduled-reports?frequency=monthly&batch=1' \
-          --header 'Authorization: Bearer ${{ secrets.REPORTS_API_KEY }}'
+          --url "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/send-scheduled-reports?frequency=monthly&batch=1" \
+          --header "Authorization: Bearer ${{ secrets.REPORTS_API_KEY }}"
       
       - name: Wait for 5 minutes
         run: sleep 300
@@ -27,5 +27,5 @@ jobs:
       - name: Send monthly reports - Batch 3
         run: |
           curl --request POST \
-          --url '${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/send-scheduled-reports?frequency=monthly&batch=2' \
-          --header 'Authorization: Bearer ${{ secrets.REPORTS_API_KEY }}'
+          --url "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/send-scheduled-reports?frequency=monthly&batch=2" \
+          --header "Authorization: Bearer ${{ secrets.REPORTS_API_KEY }}"
