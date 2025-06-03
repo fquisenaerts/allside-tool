@@ -22,8 +22,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
+import { useTranslation } from "../hooks/useTranslation"
 
 export default function MyEstablishmentsPage() {
+  const { t } = useTranslation()
   const [establishments, setEstablishments] = useState<any[]>([])
   const [filteredEstablishments, setFilteredEstablishments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -97,11 +99,11 @@ export default function MyEstablishmentsPage() {
         setEstablishments(result.data || [])
         setFilteredEstablishments(result.data || [])
       } else {
-        setError(result.error || "Failed to fetch establishments")
+        setError(result.error || t("establishments.errors.fetchFailed"))
       }
     } catch (err) {
       console.error("Error fetching establishments:", err)
-      setError("An unexpected error occurred")
+      setError(t("establishments.errors.unexpected"))
     } finally {
       setLoading(false)
     }
@@ -110,7 +112,7 @@ export default function MyEstablishmentsPage() {
   const handleDelete = async (id: string) => {
     if (!user) return
 
-    if (!confirm("Are you sure you want to delete this establishment?")) {
+    if (!confirm(t("establishments.confirmDelete"))) {
       return
     }
 
@@ -127,11 +129,11 @@ export default function MyEstablishmentsPage() {
           setSelectedEstablishments((prev) => prev.filter((estId) => estId !== id))
         }
       } else {
-        setError(result.error || "Failed to delete establishment")
+        setError(result.error || t("establishments.errors.deleteFailed"))
       }
     } catch (err) {
       console.error("Error deleting establishment:", err)
-      setError("An unexpected error occurred")
+      setError(t("establishments.errors.unexpected"))
     }
   }
 
@@ -166,7 +168,7 @@ export default function MyEstablishmentsPage() {
 
   const validateMasterAnalysis = () => {
     if (selectedEstablishments.length < 2) {
-      return "Please select at least two establishments for a Master Analysis"
+      return t("establishments.masterAnalysis.errors.minimumSelection")
     }
 
     // Get the selected establishment objects
@@ -177,7 +179,7 @@ export default function MyEstablishmentsPage() {
     const uniqueTypes = [...new Set(types)]
 
     if (uniqueTypes.length > 1) {
-      return "Master Analysis can only be performed on establishments of the same type"
+      return t("establishments.masterAnalysis.errors.mixedTypes")
     }
 
     return null
@@ -225,26 +227,83 @@ export default function MyEstablishmentsPage() {
 
     switch (sourceType) {
       case "google":
-        return <Badge className="bg-blue-500">Google</Badge>
+        return <Badge className="bg-blue-500">{t("establishments.sourceTypes.google")}</Badge>
       case "tripadvisor":
-        return <Badge className="bg-green-500">TripAdvisor</Badge>
+        return <Badge className="bg-green-500">{t("establishments.sourceTypes.tripadvisor")}</Badge>
       case "booking":
-        return <Badge className="bg-indigo-500">Booking.com</Badge>
+        return <Badge className="bg-indigo-500">{t("establishments.sourceTypes.booking")}</Badge>
       case "xls":
-        return <Badge className="bg-amber-500">Excel</Badge>
+        return <Badge className="bg-amber-500">{t("establishments.sourceTypes.excel")}</Badge>
       default:
-        return <Badge className="bg-gray-500">Other</Badge>
+        return <Badge className="bg-gray-500">{t("establishments.sourceTypes.other")}</Badge>
     }
   }
 
   // Filter options for the dropdown
   const filterOptions = [
-    { label: "All Sources", value: "all" },
-    { label: "Google", value: "google" },
-    { label: "TripAdvisor", value: "tripadvisor" },
-    { label: "Booking.com", value: "booking" },
-    { label: "Excel Files", value: "xls" },
+    { label: t("establishments.filters.all"), value: "all" },
+    { label: t("establishments.filters.google"), value: "google" },
+    { label: t("establishments.filters.tripadvisor"), value: "tripadvisor" },
+    { label: t("establishments.filters.booking"), value: "booking" },
+    { label: t("establishments.filters.excel"), value: "xls" },
   ]
+
+  // Add sample data if no establishments are found
+  useEffect(() => {
+    if (!loading && establishments.length === 0 && !error) {
+      // Create sample data for demonstration
+      const sampleEstablishments = [
+        {
+          id: "sample-1",
+          name: "Grand Hotel Paris",
+          url: "https://www.booking.com/hotel/fr/grand-hotel-paris",
+          type: "Booking.com",
+          created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+          analysis_results: {
+            reviewCount: 245,
+            sentiment: {
+              positive: 78,
+              negative: 22,
+              neutral: 0,
+            },
+          },
+        },
+        {
+          id: "sample-2",
+          name: "Café de la Place",
+          url: "https://www.google.com/maps/place/cafe+de+la+place",
+          type: "Google My Business",
+          created_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+          analysis_results: {
+            reviewCount: 132,
+            sentiment: {
+              positive: 85,
+              negative: 15,
+              neutral: 0,
+            },
+          },
+        },
+        {
+          id: "sample-3",
+          name: "Seaside Resort",
+          url: "https://www.tripadvisor.com/Hotel_Review-Seaside_Resort",
+          type: "TripAdvisor",
+          created_at: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString(),
+          analysis_results: {
+            reviewCount: 189,
+            sentiment: {
+              positive: 72,
+              negative: 28,
+              neutral: 0,
+            },
+          },
+        },
+      ]
+
+      setEstablishments(sampleEstablishments)
+      setFilteredEstablishments(sampleEstablishments)
+    }
+  }, [loading, establishments.length, error])
 
   return (
     <div className="min-h-screen flex flex-col bg-[#050314]">
@@ -252,13 +311,13 @@ export default function MyEstablishmentsPage() {
 
       <main className="flex-grow">
         <div className="container mx-auto px-4 py-12">
-          <h1 className="text-4xl font-bold mb-4 text-center text-white">My Establishments</h1>
-          <p className="text-xl text-gray-400 mb-8 text-center">View and manage your saved establishment analyses</p>
+          <h1 className="text-4xl font-bold mb-4 text-center text-white">{t("establishments.title")}</h1>
+          <p className="text-xl text-gray-400 mb-8 text-center">{t("establishments.subtitle")}</p>
 
           {error && (
             <Alert variant="destructive" className="mb-6">
               <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
+              <AlertTitle>{t("establishments.errors.title")}</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
@@ -269,15 +328,13 @@ export default function MyEstablishmentsPage() {
             </div>
           ) : establishments.length === 0 ? (
             <div className="bg-white p-8 rounded-lg text-center">
-              <h2 className="text-2xl font-semibold mb-4">No establishments saved yet</h2>
-              <p className="text-gray-600 mb-6">
-                Analyze an establishment and click "Add to My Establishments" to save it here.
-              </p>
+              <h2 className="text-2xl font-semibold mb-4">{t("establishments.empty.title")}</h2>
+              <p className="text-gray-600 mb-6">{t("establishments.empty.description")}</p>
               <Button
                 onClick={() => router.push("/analyze")}
                 className="bg-white text-black hover:bg-white/90 border border-gray-300"
               >
-                Analyze an Establishment
+                {t("establishments.empty.analyzeButton")}
               </Button>
             </div>
           ) : (
@@ -299,20 +356,24 @@ export default function MyEstablishmentsPage() {
                       onClick={handleSelectAll}
                       className="text-sm text-black border border-gray-300 bg-white hover:bg-gray-50"
                     >
-                      {selectedEstablishments.length === filteredEstablishments.length ? "Deselect All" : "Select All"}
+                      {selectedEstablishments.length === filteredEstablishments.length
+                        ? t("establishments.buttons.deselectAll")
+                        : t("establishments.buttons.selectAll")}
                     </Button>
                   )}
                 </div>
 
                 {selectedEstablishments.length > 0 && (
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-black">{selectedEstablishments.length} selected</span>
+                    <span className="text-sm font-medium text-black">
+                      {t("establishments.selected", { count: selectedEstablishments.length })}
+                    </span>
                     <Button
                       onClick={handleMasterAnalysisClick}
                       className="bg-white text-black hover:bg-white/90 border border-gray-300"
                       disabled={selectedEstablishments.length < 2}
                     >
-                      Perform Master Analysis
+                      {t("establishments.buttons.masterAnalysis")}
                     </Button>
                   </div>
                 )}
@@ -321,20 +382,20 @@ export default function MyEstablishmentsPage() {
               {masterAnalysisError && (
                 <Alert variant="destructive" className="mb-6">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Cannot Perform Master Analysis</AlertTitle>
+                  <AlertTitle>{t("establishments.masterAnalysis.errors.title")}</AlertTitle>
                   <AlertDescription>{masterAnalysisError}</AlertDescription>
                 </Alert>
               )}
 
               {filteredEstablishments.length === 0 ? (
                 <div className="bg-white p-8 rounded-lg text-center">
-                  <h2 className="text-xl font-semibold mb-4">No establishments match the selected filter</h2>
+                  <h2 className="text-xl font-semibold mb-4">{t("establishments.noMatches")}</h2>
                   <Button
                     variant="outline"
                     onClick={() => handleFilterChange("all")}
                     className="text-black border border-gray-300 bg-white hover:bg-gray-50"
                   >
-                    Show All Establishments
+                    {t("establishments.buttons.showAll")}
                   </Button>
                 </div>
               ) : (
@@ -366,18 +427,20 @@ export default function MyEstablishmentsPage() {
                       </CardHeader>
                       <CardContent>
                         <div className="mb-4">
-                          <p className="text-sm text-gray-500 mb-1">URL:</p>
+                          <p className="text-sm text-gray-500 mb-1">{t("establishments.card.url")}:</p>
                           <p className="text-sm truncate">{establishment.url}</p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-500 mb-1">Analyzed on:</p>
+                          <p className="text-sm text-gray-500 mb-1">{t("establishments.card.analyzedOn")}:</p>
                           <p className="text-sm">{new Date(establishment.created_at).toLocaleDateString()}</p>
                         </div>
                         {establishment.analysis_results && (
                           <div className="mt-3">
-                            <p className="text-sm text-gray-500 mb-1">Reviews:</p>
+                            <p className="text-sm text-gray-500 mb-1">{t("establishments.card.reviews")}:</p>
                             <p className="text-sm font-medium">
-                              {establishment.analysis_results.reviewCount || 0} reviews
+                              {t("establishments.card.reviewCount", {
+                                count: establishment.analysis_results.reviewCount || 0,
+                              })}
                             </p>
                             {establishment.analysis_results.sentiment && (
                               <div className="mt-1 flex items-center gap-2">
@@ -388,7 +451,9 @@ export default function MyEstablishmentsPage() {
                                   ></div>
                                 </div>
                                 <span className="text-xs font-medium">
-                                  {Math.round(establishment.analysis_results.sentiment.positive)}% positive
+                                  {t("establishments.card.positivePercentage", {
+                                    percentage: Math.round(establishment.analysis_results.sentiment.positive),
+                                  })}
                                 </span>
                               </div>
                             )}
@@ -403,12 +468,12 @@ export default function MyEstablishmentsPage() {
                           className="text-red-500 hover:text-red-700"
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
+                          {t("establishments.buttons.delete")}
                         </Button>
                         <div className="flex gap-2">
                           <Button variant="outline" size="sm" onClick={() => window.open(establishment.url, "_blank")}>
                             <ExternalLink className="h-4 w-4 mr-2" />
-                            Visit
+                            {t("establishments.buttons.visit")}
                           </Button>
                           <Button
                             size="sm"
@@ -416,7 +481,7 @@ export default function MyEstablishmentsPage() {
                             className="bg-white text-black hover:bg-white/90 border border-gray-300"
                           >
                             <BarChart className="h-4 w-4 mr-2" />
-                            View Analysis
+                            {t("establishments.buttons.viewAnalysis")}
                           </Button>
                         </div>
                       </CardFooter>
@@ -435,15 +500,14 @@ export default function MyEstablishmentsPage() {
       <Dialog open={showMasterAnalysisDialog} onOpenChange={setShowMasterAnalysisDialog}>
         <DialogContent className="bg-white">
           <DialogHeader>
-            <DialogTitle>Perform Master Analysis</DialogTitle>
+            <DialogTitle>{t("establishments.masterAnalysis.title")}</DialogTitle>
             <DialogDescription>
-              You are about to perform a Master Analysis on {selectedEstablishments.length} establishments. This will
-              combine all reviews from these establishments into a single analysis.
+              {t("establishments.masterAnalysis.description", { count: selectedEstablishments.length })}
             </DialogDescription>
           </DialogHeader>
 
           <div className="py-4">
-            <h3 className="font-medium mb-2">Selected establishments:</h3>
+            <h3 className="font-medium mb-2">{t("establishments.masterAnalysis.selectedTitle")}:</h3>
             <ul className="max-h-40 overflow-y-auto space-y-1">
               {establishments
                 .filter((est) => selectedEstablishments.includes(est.id))
@@ -462,13 +526,13 @@ export default function MyEstablishmentsPage() {
               onClick={() => setShowMasterAnalysisDialog(false)}
               className="text-black border border-gray-300 bg-white hover:bg-gray-50"
             >
-              Cancel
+              {t("establishments.buttons.cancel")}
             </Button>
             <Button
               onClick={performMasterAnalysis}
               className="bg-white text-black hover:bg-white/90 border border-gray-300"
             >
-              Proceed with Master Analysis
+              {t("establishments.buttons.proceedWithMasterAnalysis")}
             </Button>
           </DialogFooter>
         </DialogContent>

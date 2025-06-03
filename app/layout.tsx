@@ -1,25 +1,23 @@
-import { Mona_Sans } from "next/font/google"
-import { cn } from "@/lib/utils"
-import "./globals.css"
 import type React from "react"
-
-const monaSans = Mona_Sans({
-  subsets: ["latin"],
-  variable: "--font-sans",
-})
+import "./globals.css"
+import { LanguageProvider } from "./contexts/LanguageContext"
+import { CustomCursor } from "./components/CustomCursor"
 
 export const metadata = {
-  generator: "v0.dev",
+  title: "Allside - AI-Powered Review Analysis",
+  description: "Analyze customer reviews with AI to gain valuable insights for your business",
+    generator: 'v0.dev'
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={cn("min-h-screen bg-[#050314] font-sans antialiased", monaSans.variable)}>{children}</body>
+    <html lang="fr">
+      <body>
+        <LanguageProvider>
+          {children}
+          <CustomCursor />
+        </LanguageProvider>
+      </body>
     </html>
   )
 }

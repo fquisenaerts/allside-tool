@@ -116,7 +116,7 @@ export function SentimentPieChart({
               label={({ name, percentage }) => `${name}: ${percentage}%`}
             >
               {dataWithPercentages.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[entry.name]} />
+                <Cell key={`cell-${index}`} fill={COLORS[entry.name] || "#8884d8"} />
               ))}
             </Pie>
             <Tooltip

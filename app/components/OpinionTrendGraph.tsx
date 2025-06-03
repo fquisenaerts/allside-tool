@@ -7,10 +7,18 @@ interface OpinionTrendGraphProps {
 export function OpinionTrendGraph({ data }: OpinionTrendGraphProps) {
   // This is a simplified representation. In a real-world scenario, you'd want to use actual data points.
   const trendData = [
-    { month: "Jan", score: 50 },
-    { month: "Feb", score: data === "improving" ? 60 : data === "deteriorating" ? 40 : 50 },
-    { month: "Mar", score: data === "improving" ? 70 : data === "deteriorating" ? 30 : 50 },
-    { month: "Apr", score: data === "improving" ? 80 : data === "deteriorating" ? 20 : 50 },
+    { month: "Jan", score: data === "improving" ? 45 : data === "deteriorating" ? 65 : 50 },
+    { month: "Feb", score: data === "improving" ? 52 : data === "deteriorating" ? 58 : 48 },
+    { month: "Mar", score: data === "improving" ? 61 : data === "deteriorating" ? 45 : 52 },
+    { month: "Apr", score: data === "improving" ? 68 : data === "deteriorating" ? 38 : 49 },
+    { month: "May", score: data === "improving" ? 74 : data === "deteriorating" ? 32 : 51 },
+    { month: "Jun", score: data === "improving" ? 79 : data === "deteriorating" ? 28 : 53 },
+    { month: "Jul", score: data === "improving" ? 83 : data === "deteriorating" ? 25 : 0 },
+    { month: "Aug", score: data === "improving" ? 87 : data === "deteriorating" ? 22 : 0 },
+    { month: "Sep", score: data === "improving" ? 90 : data === "deteriorating" ? 20 : 0 },
+    { month: "Oct", score: data === "improving" ? 92 : data === "deteriorating" ? 18 : 0 },
+    { month: "Nov", score: data === "improving" ? 94 : data === "deteriorating" ? 16 : 0 },
+    { month: "Dec", score: data === "improving" ? 96 : data === "deteriorating" ? 15 : 0 },
   ]
 
   return (
@@ -18,7 +26,7 @@ export function OpinionTrendGraph({ data }: OpinionTrendGraphProps) {
       <LineChart data={trendData}>
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="month" />
-        <YAxis />
+        <YAxis domain={[0, 100]} />
         <Tooltip />
         <Legend />
         <Line type="monotone" dataKey="score" stroke="#8884d8" />

@@ -1,9 +1,12 @@
 import { supabase } from "@/lib/supabase"
 import fs from "fs"
 import path from "path"
+import { checkUserUsageTable } from "../actions/usage"
 
-async function runMigrations() {
+export async function runMigrations() {
   console.log("Running migrations...")
+
+  await checkUserUsageTable()
 
   try {
     // Read migration files

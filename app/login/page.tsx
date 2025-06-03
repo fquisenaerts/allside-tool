@@ -12,8 +12,10 @@ import { Header } from "../components/Header"
 import { Footer } from "../components/Footer"
 import Link from "next/link"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useTranslation } from "@/app/hooks/useTranslation"
 
 export default function Login() {
+  const { t } = useTranslation()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
@@ -47,23 +49,23 @@ export default function Login() {
       })
 
       if (loginError) {
-        setError(`Error: ${loginError.message}`)
+        setError(`${t("auth.error")}: ${loginError.message}`)
         setLoading(false)
         return
       }
 
       if (!data.user) {
-        setError("Failed to sign in")
+        setError(t("auth.failedSignIn"))
         setLoading(false)
         return
       }
 
-      setSuccess("Login successful! Redirecting...")
+      setSuccess(t("auth.loginSuccess"))
 
       // Use hard navigation to avoid caching issues
       window.location.href = "/analyze"
     } catch (err: any) {
-      setError(`Unexpected error: ${err.message}`)
+      setError(`${t("auth.unexpectedError")}: ${err.message}`)
       setLoading(false)
     }
   }
@@ -74,20 +76,20 @@ export default function Login() {
       <div className="flex-grow flex items-center justify-center">
         <Card className="w-[400px] mt-20 bg-[#050314] border-gray-800">
           <CardHeader>
-            <CardTitle className="text-white">Log In</CardTitle>
-            <CardDescription className="text-gray-400">Sign in to your account</CardDescription>
+            <CardTitle className="text-white">{t("auth.logIn")}</CardTitle>
+            <CardDescription className="text-gray-400">{t("auth.signInToAccount")}</CardDescription>
           </CardHeader>
           <CardContent>
             {error && (
               <Alert variant="destructive" className="mb-4">
-                <AlertTitle>Error</AlertTitle>
+                <AlertTitle>{t("auth.errorTitle")}</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
 
             {success && (
               <Alert className="mb-4 bg-green-900 border-green-800">
-                <AlertTitle className="text-green-100">Success</AlertTitle>
+                <AlertTitle className="text-green-100">{t("auth.successTitle")}</AlertTitle>
                 <AlertDescription className="text-green-200">{success}</AlertDescription>
               </Alert>
             )}
@@ -95,7 +97,7 @@ export default function Login() {
             <form onSubmit={handleLogin} className="space-y-4">
               <Input
                 type="email"
-                placeholder="Email"
+                placeholder={t("auth.email")}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -103,20 +105,20 @@ export default function Login() {
               />
               <Input
                 type="password"
-                placeholder="Password"
+                placeholder={t("auth.password")}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 className="bg-[#0f0a2e] border-gray-700 text-white"
               />
               <Button type="submit" className="w-full bg-white text-black hover:bg-gray-100" disabled={loading}>
-                {loading ? "Signing in..." : "Sign In"}
+                {loading ? t("auth.signingIn") : t("auth.signIn")}
               </Button>
             </form>
           </CardContent>
           <CardFooter className="flex justify-center">
             <Link href="/signup" className="text-sm text-gray-400 hover:text-white">
-              Don't have an account? Create one
+              {t("auth.dontHaveAccount")}
             </Link>
           </CardFooter>
         </Card>

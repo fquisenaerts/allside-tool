@@ -1,41 +1,46 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Info, ArrowLeft, AlertCircle } from "lucide-react"
+import { Info, ArrowLeft, AlertCircle, Download } from "lucide-react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 import type { User } from "@supabase/supabase-js"
 import { analyzeSentiment } from "../actions"
 import { Header } from "../components/Header"
-import { Footer } from "../components/Footer"
 import { generatePDFReport } from "../utils/pdfGenerator"
 import { SaveEstablishment } from "../components/SaveEstablishment"
 import { SentimentPieChart } from "../components/SentimentPieChart"
 import { EmotionsBarChart } from "../components/EmotionsBarChart"
 import { KeywordCloud } from "../components/KeywordCloud"
 import { StrengthsWeaknessesBarChart } from "../components/StrengthsWeaknessesBarChart"
-import { ProductPromotionArguments } from "../components/ProductPromotionArguments"
-import { ReviewTimelineGraph } from "../components/ReviewTimelineGraph"
-import { NetPromoterScore } from "../components/NetPromoterScore"
-import { TimeBetweenPurchaseReview } from "../components/TimeBetweenPurchaseReview"
-import { RatingDistributionChart } from "../components/RatingDistributionChart"
-import { TemporalHeatmap } from "../components/TemporalHeatmap"
-import { NoticesPerMonthChart } from "../components/NoticesPerMonthChart"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { AnalysisResultsCard } from "../components/AnalysisResultsCard"
 import { AnalysisSummaryCards } from "../components/AnalysisSummaryCards"
-import { ReviewSummaryTable } from "../components/ReviewSummaryTable"
 import { ToneBarChart } from "../components/ToneBarChart"
-import { RatingBoxPlot } from "../components/RatingBoxPlot"
-import { NegativeReviewPrediction } from "../components/NegativeReviewPrediction"
-import { ReviewClusteringGraph } from "../components/ReviewClusteringGraph"
+import { useTranslation } from "../hooks/useTranslation"
+import { ReviewUsageCounter } from "../components/ReviewUsageCounter"
+import { ProductPromotionArguments } from "../components/ProductPromotionArguments"
 import { InfluentialReviews } from "../components/InfluentialReviews"
+import { AnalysisInsightsSummary } from "../components/AnalysisInsightsSummary"
+import { NetPromoterScore } from "../components/NetPromoterScore"
+import { RatingDistributionChart } from "../components/RatingDistributionChart"
+import { ReviewCountGraph } from "../components/ReviewCountGraph"
+import { NoticesPerMonthChart } from "../components/NoticesPerMonthChart"
+import { TemporalHeatmap } from "../components/TemporalHeatmap"
+import { TimeBetweenPurchaseReview } from "../components/TimeBetweenPurchaseReview"
+import { OpinionTrendGraph } from "../components/OpinionTrendGraph"
+import { SatisfactionFlowChart } from "../components/SatisfactionFlowChart"
+import { ReviewSummaryTable } from "../components/ReviewSummaryTable"
+import { ReviewClusteringGraph } from "../components/ReviewClusteringGraph"
+import { NegativeReviewPrediction } from "../components/NegativeReviewPrediction"
+import { RatingBoxPlot } from "../components/RatingBoxPlot"
 
 export default function AnalyzePage() {
+  const { t } = useTranslation()
   const [url1, setUrl1] = useState("")
   const [url2, setUrl2] = useState("")
   const [reviews, setReviews] = useState("")
@@ -61,15 +66,114 @@ export default function AnalyzePage() {
   const [url, setUrl] = useState("")
   const [activeTab, setActiveTab] = useState("overview")
   const [bulkAnalysisResults, setBulkAnalysisResults] = useState<any[] | null>(null)
+  const [reviewsAnalyzedThisMonth, setReviewsAnalyzedThisMonth] = useState(0)
+  const [isLoadingUsage, setIsLoadingUsage] = useState(true)
+  const [refreshUsageCounter, setRefreshUsageCounter] = useState(0)
+  const [reviewCount, setReviewCount] = useState<number>(100) // Default to 100 reviews
+  // Add new state variables for better progress tracking:
+  const [loadingProgress, setLoadingProgress] = useState("")
+  const [loadingStep, setLoadingStep] = useState(0)
+  const [totalSteps] = useState(4)
 
   const searchParams = useSearchParams()
   const router = useRouter()
+
+  const hasLoadedUsageRef = useRef(false)
+
+  // Load review usage from database
+  const fetchReviewUsage = async (userId: string) => {
+    if (!userId) {
+      setIsLoadingUsage(false)
+      return
+    }
+
+    setIsLoadingUsage(true)
+    try {
+      console.log("Fetching review usage for user:", userId)
+
+      const response = await fetch(`/api/review-usage?userId=${userId}`)
+
+      // Check if the response is OK before trying to parse it as JSON
+      if (!response.ok) {
+        console.error("Error fetching review usage. Status:", response.status)
+        setReviewsAnalyzedThisMonth(0)
+        return
+      }
+
+      const data = await response.json()
+
+      if (!data.success) {
+        console.error("Error fetching review usage:", data.error)
+        // Continue execution even if there's an error
+        setReviewsAnalyzedThisMonth(0)
+      } else {
+        console.log("Fetched review usage:", data.reviewsAnalyzed)
+        setReviewsAnalyzedThisMonth(data.reviewsAnalyzed || 0)
+      }
+    } catch (error) {
+      console.error("Error in fetchReviewUsage:", error)
+      // Set a default value to prevent UI issues
+      setReviewsAnalyzedThisMonth(0)
+    } finally {
+      setIsLoadingUsage(false)
+    }
+  }
+
+  // Update review usage in database
+  const updateReviewUsage = async (userId: string, newReviewCount: number) => {
+    if (!userId) return
+
+    try {
+      console.log(`Updating review usage for user ${userId} with ${newReviewCount} new reviews`)
+
+      const response = await fetch("/api/review-usage", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId, reviewCount: newReviewCount }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        console.error("Error updating review usage. Status:", response.status, "Response:", data)
+        // Don't return early, continue with local update
+      }
+
+      if (!data.success) {
+        console.error("Error updating review usage:", data.error)
+        // Don't return early, continue with local update
+      } else {
+        console.log("Successfully updated review usage. New total:", data.newTotal)
+        // Update the local state with the new total from the server
+        setReviewsAnalyzedThisMonth(data.newTotal)
+      }
+
+      // Always trigger the refresh counter to update UI
+      setTimeout(() => {
+        setRefreshUsageCounter((prev) => prev + 1)
+      }, 1000)
+    } catch (error) {
+      console.error("Error in updateReviewUsage:", error)
+      // Still trigger refresh to update UI
+      setTimeout(() => {
+        setRefreshUsageCounter((prev) => prev + 1)
+      }, 1000)
+    }
+  }
 
   useEffect(() => {
     const checkUser = async () => {
       const { data } = await supabase.auth.getSession()
       if (data?.session?.user) {
         setUser(data.session.user)
+
+        // Fetch review usage from database only once
+        if (!hasLoadedUsageRef.current) {
+          hasLoadedUsageRef.current = true
+          await fetchReviewUsage(data.session.user.id)
+        }
 
         // Get user metadata to determine plan
         const { data: userData } = await supabase.auth.getUser()
@@ -178,7 +282,7 @@ export default function AnalyzePage() {
   const handleBulkAnalyze = async (urls: string[], type: string) => {
     // Check if user has access to bulk analysis
     if (!hasAccess("bulk_analysis")) {
-      setError("Bulk analysis is only available on the Custom plan. Please upgrade to access this feature.")
+      setError(t("analyze.errors.bulkAnalysisUpgrade"))
       setShowUpgradeModal(true)
       return
     }
@@ -212,7 +316,7 @@ export default function AnalyzePage() {
       }
 
       if (allResults.length === 0) {
-        throw new Error("No results could be obtained from any of the URLs")
+        throw new Error(t("analyze.errors.noResults"))
       }
 
       // Combine results
@@ -225,13 +329,18 @@ export default function AnalyzePage() {
         setCurrentUrl(null)
         setAnalysisType(`Bulk ${type} Analysis`)
         setBulkAnalysisResults(allResults)
+
+        // Update reviews analyzed count in database
+        if (user) {
+          await updateReviewUsage(user.id, combinedResults.reviewCount)
+        }
       } else {
-        throw new Error("Failed to combine analysis results")
+        throw new Error(t("analyze.errors.combineFailed"))
       }
     } catch (error: any) {
       console.error("Bulk analysis error:", error)
       setAnalysisResults(null)
-      setError(error.message || "An error occurred during bulk analysis")
+      setError(error.message || t("analyze.errors.generic"))
     } finally {
       setLoading(false)
     }
@@ -378,6 +487,7 @@ export default function AnalyzePage() {
     return combined
   }
 
+  // Update the handleAnalyze function to show progress:
   const handleAnalyze = async () => {
     // Check if user is logged in
     if (!user) {
@@ -387,54 +497,84 @@ export default function AnalyzePage() {
 
     setLoading(true)
     setError(null)
+    setLoadingProgress("Initializing analysis...")
+    setLoadingStep(1)
+
     try {
       let input: any = {}
       let analyzedUrl = null
       let type = null
 
       if (url1) {
-        input = { type: "url", content: url1 }
+        input = { type: "url", content: url1, reviewCount: reviewCount }
         analyzedUrl = url1
         type = "URL"
       } else if (gmbUrl) {
-        input = { type: "gmb", content: gmbUrl }
+        input = { type: "gmb", content: gmbUrl, reviewCount: reviewCount }
         analyzedUrl = gmbUrl
         type = "Google My Business"
+        setLoadingProgress(`Fetching ${reviewCount} reviews from Google My Business...`)
       } else if (tripAdvisorUrl) {
-        input = { type: "tripadvisor", content: tripAdvisorUrl }
+        input = { type: "tripadvisor", content: tripAdvisorUrl, reviewCount: reviewCount }
         analyzedUrl = tripAdvisorUrl
         type = "TripAdvisor"
+        setLoadingProgress(`Fetching ${reviewCount} reviews from TripAdvisor...`)
       } else if (bookingUrl) {
-        input = { type: "booking", content: bookingUrl }
+        input = { type: "booking", content: bookingUrl, reviewCount: reviewCount }
         analyzedUrl = bookingUrl
         type = "Booking.com"
+        setLoadingProgress(`Fetching ${reviewCount} reviews from Booking.com...`)
       } else if (file) {
         const arrayBuffer = await file.arrayBuffer()
         input = { type: "file", content: arrayBuffer }
         analyzedUrl = file.name
         type = "File"
+        setLoadingProgress("Processing Excel file...")
       } else if (reviews) {
         input = { type: "text", content: reviews }
         analyzedUrl = "Text Input"
         type = "Text"
+        setLoadingProgress("Processing text input...")
       } else {
-        setError("Please enter a URL or text to analyze.")
+        setError(t("analyze.errors.noInput"))
         setLoading(false)
         return
       }
 
+      setLoadingStep(2)
       console.log("Starting analysis with input type:", input.type)
 
       try {
-        const results = await analyzeSentiment(input)
+        // Add a timeout for the entire analysis
+        const analysisPromise = analyzeSentiment(input)
+
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(
+            () => {
+              reject(
+                new Error(
+                  "Analysis timed out after 10 minutes. Please try again with a different URL or fewer reviews.",
+                ),
+              )
+            },
+            10 * 60 * 1000,
+          ) // 10 minutes total timeout
+        })
+
+        setLoadingProgress("Analyzing reviews with AI...")
+        setLoadingStep(3)
+
+        const results = await Promise.race([analysisPromise, timeoutPromise])
+
         if (results) {
+          setLoadingProgress("Finalizing results...")
+          setLoadingStep(4)
+
           console.log("Analysis results:", results)
 
           // Check if review count exceeds the limit for the user's plan
           if (results.reviewCount > reviewLimit && !hasAccess("unlimited_reviews")) {
-            setError(
-              `Your current plan allows analysis of up to ${reviewLimit} reviews. This analysis contains ${results.reviewCount} reviews. Please upgrade to analyze more reviews.`,
-            )
+            setError(t("analyze.errors.reviewLimit", { limit: reviewLimit, count: results.reviewCount }))
             setShowUpgradeModal(true)
             // Still show results but with a warning
           }
@@ -443,26 +583,34 @@ export default function AnalyzePage() {
           setShowInputForm(false)
           setCurrentUrl(analyzedUrl)
           setAnalysisType(type)
+
+          // Update reviews analyzed count in database - ENSURE THIS HAPPENS
+          if (user && results.reviewCount > 0) {
+            console.log("Calling updateReviewUsage with:", user.id, results.reviewCount)
+            await updateReviewUsage(user.id, results.reviewCount)
+          }
         } else {
-          throw new Error("No analysis results returned")
+          throw new Error(t("analyze.errors.noResults"))
         }
       } catch (error: any) {
         console.error("Analysis error:", error)
-        setError(error.message || "An error occurred during analysis")
+        setError(error.message || t("analyze.errors.generic"))
       }
     } catch (error: any) {
       console.error("Analysis error:", error)
       setAnalysisResults(null)
-      setError(error.message || "An error occurred during analysis")
+      setError(error.message || t("analyze.errors.generic"))
     } finally {
       setLoading(false)
+      setLoadingProgress("")
+      setLoadingStep(0)
     }
   }
 
   const handleDownloadPDF = () => {
     // Check if user has export access
     if (!hasAccess("export")) {
-      setError("Exporting reports is only available on paid plans. Please upgrade to access this feature.")
+      setError(t("analyze.errors.exportUpgrade"))
       setShowUpgradeModal(true)
       return
     }
@@ -525,23 +673,34 @@ export default function AnalyzePage() {
     const negativePercentage = Math.round(sentiment.negative)
     const neutralPercentage = Math.round(sentiment.neutral)
 
-    let commentary = `Based on the analysis of ${reviewCount} reviews, your customer sentiment is `
+    let commentary = t("analyze.commentaries.sentiment.intro", { reviewCount })
 
     if (positivePercentage >= 70) {
-      commentary += `overwhelmingly positive at ${positivePercentage}%. This is an excellent indicator of strong customer satisfaction and loyalty. Your customers are clearly happy with their experience, which provides a solid foundation for brand advocacy.`
+      commentary += t("analyze.commentaries.sentiment.veryPositive", { positivePercentage })
     } else if (positivePercentage >= 50) {
-      commentary += `generally positive at ${positivePercentage}%. While this is a good sign, there's room for improvement. The ${neutralPercentage}% neutral and ${negativePercentage}% negative sentiments suggest some areas that could be addressed to enhance overall customer satisfaction.`
+      commentary += t("analyze.commentaries.sentiment.positive", {
+        positivePercentage,
+        neutralPercentage,
+        negativePercentage,
+      })
     } else if (positivePercentage >= 30) {
-      commentary += `mixed, with ${positivePercentage}% positive, ${neutralPercentage}% neutral, and ${negativePercentage}% negative reviews. This indicates significant challenges in customer satisfaction that require attention. Focus on understanding and addressing the common issues raised in negative reviews.`
+      commentary += t("analyze.commentaries.sentiment.mixed", {
+        positivePercentage,
+        neutralPercentage,
+        negativePercentage,
+      })
     } else {
-      commentary += `concerning, with only ${positivePercentage}% positive reviews. The high percentage of negative sentiment (${negativePercentage}%) suggests critical issues that need immediate attention to prevent further damage to your brand reputation.`
+      commentary += t("analyze.commentaries.sentiment.negative", {
+        positivePercentage,
+        negativePercentage,
+      })
     }
 
     // Add specific advice based on sentiment distribution
     if (positivePercentage >= 70) {
-      commentary += ` To maintain this excellent performance, continue focusing on your strengths while addressing the small percentage of negative feedback to achieve even higher satisfaction levels.`
+      commentary += t("analyze.commentaries.sentiment.advicePositive")
     } else if (negativePercentage > 30) {
-      commentary += ` Consider implementing a systematic approach to address customer complaints and improve the aspects of your product or service that are generating negative feedback.`
+      commentary += t("analyze.commentaries.sentiment.adviceNegative")
     }
 
     return commentary
@@ -555,43 +714,39 @@ export default function AnalyzePage() {
     const topEmotions = emotions.slice(0, 3)
     const primaryEmotion = topEmotions[0]
 
-    let commentary = `The emotional analysis reveals that "${primaryEmotion.emotion}" is the dominant emotion expressed by your customers`
+    let commentary = t("analyze.commentaries.emotions.intro", {
+      primaryEmotion: primaryEmotion.emotion,
+    })
 
     if (topEmotions.length > 1) {
-      commentary += `, followed by "${topEmotions[1].emotion}"`
+      commentary += t("analyze.commentaries.emotions.secondEmotion", {
+        secondEmotion: topEmotions[1].emotion,
+      })
       if (topEmotions.length > 2) {
-        commentary += ` and "${topEmotions[2].emotion}"`
+        commentary += t("analyze.commentaries.emotions.thirdEmotion", {
+          thirdEmotion: topEmotions[2].emotion,
+        })
       }
     }
     commentary += `. `
 
-    // Add emotion-specific insights
-    switch (primaryEmotion.emotion.toLowerCase()) {
-      case "satisfaction":
-        commentary += `This high level of satisfaction indicates your product or service is meeting customer expectations. Customers who feel satisfied are more likely to become repeat buyers and recommend your brand to others.`
-        break
-      case "joy":
-      case "happiness":
-        commentary += `The prevalence of joy in customer feedback is a powerful indicator that your offering is creating positive emotional experiences. This emotional connection can be leveraged in marketing to strengthen brand loyalty.`
-        break
-      case "trust":
-        commentary += `Trust is a fundamental emotion for building long-term customer relationships. Your customers feel confident in your brand's reliability and integrity, which is a valuable asset for customer retention.`
-        break
-      case "anticipation":
-        commentary += `Customers expressing anticipation are excited about future experiences with your brand. This presents an opportunity to nurture this enthusiasm through engaging communication about upcoming features or offerings.`
-        break
-      case "disappointment":
-        commentary += `The presence of disappointment suggests a gap between customer expectations and their actual experience. Identifying and addressing these unmet expectations should be a priority to improve customer satisfaction.`
-        break
-      case "frustration":
-        commentary += `Customer frustration often stems from difficulties in using your product or service, or from unresolved issues. Improving user experience and customer support processes could help reduce this negative emotion.`
-        break
-      case "anger":
-        commentary += `Anger is a strong negative emotion that requires immediate attention. These customers are at high risk of churning and sharing negative word-of-mouth. Proactive outreach and resolution strategies are essential.`
-        break
-      default:
-        commentary += `Understanding this emotional response helps you connect with customers on a deeper level and tailor your marketing and product development to better meet their emotional needs.`
+    // Add emotion-specific insights - use a safer approach to check for translation keys
+    const emotionKey = primaryEmotion.emotion.toLowerCase()
+    const specificKey = `analyze.commentaries.emotions.specific.${emotionKey}`
+
+    // Check if the translation exists without triggering a warning
+    let specificTranslation = ""
+    try {
+      specificTranslation = t(specificKey)
+      // If the translation key returns the key itself, it means it doesn't exist
+      if (specificTranslation === specificKey) {
+        specificTranslation = t("analyze.commentaries.emotions.specific.default")
+      }
+    } catch (e) {
+      specificTranslation = t("analyze.commentaries.emotions.specific.default")
     }
+
+    commentary += specificTranslation
 
     return commentary
   }
@@ -603,30 +758,39 @@ export default function AnalyzePage() {
     const themes = analysisResults.themes
     const topThemes = themes.slice(0, 5)
 
-    let commentary = `The keyword analysis has identified ${themes.length} distinct themes in your customer reviews, with `
+    let commentary = t("analyze.commentaries.themes.intro", { themeCount: themes.length })
 
     if (topThemes.length > 0) {
-      commentary += `"${topThemes[0].theme}" being mentioned most frequently (${topThemes[0].count} times)`
+      commentary += t("analyze.commentaries.themes.firstTheme", {
+        theme: topThemes[0].theme,
+        count: topThemes[0].count,
+      })
       if (topThemes.length > 1) {
-        commentary += `, followed by "${topThemes[1].theme}" (${topThemes[1].count} times)`
+        commentary += t("analyze.commentaries.themes.secondTheme", {
+          theme: topThemes[1].theme,
+          count: topThemes[1].count,
+        })
         if (topThemes.length > 2) {
-          commentary += ` and "${topThemes[2].theme}" (${topThemes[2].count} times)`
+          commentary += t("analyze.commentaries.themes.thirdTheme", {
+            theme: topThemes[2].theme,
+            count: topThemes[2].count,
+          })
         }
       }
     }
     commentary += `. `
 
-    commentary += `These recurring themes represent the aspects of your product or service that customers find most noteworthy. By focusing your attention on these key areas, you can make targeted improvements that will have the greatest impact on customer satisfaction.`
+    commentary += t("analyze.commentaries.themes.general")
 
     // Add specific advice based on top themes
     if (topThemes.length > 0) {
       const topTheme = topThemes[0].theme.toLowerCase()
       if (topTheme.includes("quality") || topTheme.includes("performance")) {
-        commentary += ` The emphasis on ${topTheme} suggests that customers value the reliability and effectiveness of your offering. Maintaining high standards in this area should remain a priority.`
+        commentary += t("analyze.commentaries.themes.specific.quality", { theme: topTheme })
       } else if (topTheme.includes("price") || topTheme.includes("cost") || topTheme.includes("value")) {
-        commentary += ` The focus on ${topTheme} indicates that customers are price-sensitive and evaluating your offering based on perceived value. Consider reviewing your pricing strategy or better communicating the value proposition.`
+        commentary += t("analyze.commentaries.themes.specific.price", { theme: topTheme })
       } else if (topTheme.includes("service") || topTheme.includes("support") || topTheme.includes("staff")) {
-        commentary += ` The prominence of ${topTheme} highlights the importance of human interactions in your customer experience. Investing in staff training and support processes could yield significant improvements in customer satisfaction.`
+        commentary += t("analyze.commentaries.themes.specific.service", { theme: topTheme })
       }
     }
 
@@ -640,24 +804,35 @@ export default function AnalyzePage() {
     const strengths = analysisResults.strengths
     const topStrengths = strengths.slice(0, 3)
 
-    let commentary = `Your analysis has identified ${strengths.length} key strengths in your customer feedback. `
+    let commentary = t("analyze.commentaries.strengths.intro", { strengthCount: strengths.length })
 
     if (topStrengths.length > 0) {
-      commentary += `The most frequently mentioned strength is "${topStrengths[0].strength}" (mentioned ${topStrengths[0].count} times)`
+      commentary += t("analyze.commentaries.strengths.firstStrength", {
+        strength: topStrengths[0].strength,
+        count: topStrengths[0].count,
+      })
       if (topStrengths.length > 1) {
-        commentary += `, followed by "${topStrengths[1].strength}" (${topStrengths[1].count} times)`
+        commentary += t("analyze.commentaries.strengths.secondStrength", {
+          strength: topStrengths[1].strength,
+          count: topStrengths[1].count,
+        })
         if (topStrengths.length > 2) {
-          commentary += ` and "${topStrengths[2].strength}" (${topStrengths[2].count} times)`
+          commentary += t("analyze.commentaries.strengths.thirdStrength", {
+            strength: topStrengths[2].strength,
+            count: topStrengths[2].count,
+          })
         }
       }
     }
     commentary += `. `
 
-    commentary += `These strengths represent your competitive advantages and should be highlighted in your marketing communications. They are the aspects of your business that customers value most and contribute significantly to your positive reviews.`
+    commentary += t("analyze.commentaries.strengths.general")
 
     // Add specific marketing advice based on top strengths
     if (topStrengths.length > 0) {
-      commentary += ` Consider featuring testimonials that specifically mention your "${topStrengths[0].strength}" in promotional materials to leverage this recognized strength and attract new customers who value this aspect.`
+      commentary += t("analyze.commentaries.strengths.marketing", {
+        strength: topStrengths[0].strength,
+      })
     }
 
     return commentary
@@ -670,32 +845,49 @@ export default function AnalyzePage() {
     const weaknesses = analysisResults.weaknesses
     const topWeaknesses = weaknesses.slice(0, 3)
 
-    let commentary = `The analysis has identified ${weaknesses.length} areas for improvement based on your customer feedback. `
+    let commentary = t("analyze.commentaries.weaknesses.intro", { weaknessCount: weaknesses.length })
 
     if (topWeaknesses.length > 0) {
-      commentary += `The most frequently mentioned concern is "${topWeaknesses[0].weakness}" (mentioned ${topWeaknesses[0].count} times)`
+      commentary += t("analyze.commentaries.weaknesses.firstWeakness", {
+        weakness: topWeaknesses[0].weakness,
+        count: topWeaknesses[0].count,
+      })
       if (topWeaknesses.length > 1) {
-        commentary += `, followed by "${topWeaknesses[1].weakness}" (${topWeaknesses[1].count} times)`
+        commentary += t("analyze.commentaries.weaknesses.secondWeakness", {
+          weakness: topWeaknesses[1].weakness,
+          count: topWeaknesses[1].count,
+        })
         if (topWeaknesses.length > 2) {
-          commentary += ` and "${topWeaknesses[2].weakness}" (${topWeaknesses[2].count} times)`
+          commentary += t("analyze.commentaries.weaknesses.thirdWeakness", {
+            weakness: topWeaknesses[2].weakness,
+            count: topWeaknesses[2].count,
+          })
         }
       }
     }
     commentary += `. `
 
-    commentary += `Addressing these specific concerns could significantly improve your overall customer satisfaction and reduce negative reviews. Each of these areas represents an opportunity to enhance your offering and better meet customer expectations.`
+    commentary += t("analyze.commentaries.weaknesses.general")
 
     // Add specific improvement advice based on top weakness
     if (topWeaknesses.length > 0) {
       const topWeakness = topWeaknesses[0].weakness.toLowerCase()
       if (topWeakness.includes("price") || topWeakness.includes("expensive")) {
-        commentary += ` For concerns about "${topWeaknesses[0].weakness}", consider either adjusting your pricing strategy or better communicating the value proposition to justify the current price point.`
+        commentary += t("analyze.commentaries.weaknesses.specific.price", {
+          weakness: topWeaknesses[0].weakness,
+        })
       } else if (topWeakness.includes("service") || topWeakness.includes("support")) {
-        commentary += ` To address issues with "${topWeaknesses[0].weakness}", investing in customer service training and improving response times could lead to significant improvements in customer satisfaction.`
+        commentary += t("analyze.commentaries.weaknesses.specific.service", {
+          weakness: topWeaknesses[0].weakness,
+        })
       } else if (topWeakness.includes("quality") || topWeakness.includes("defect")) {
-        commentary += ` For concerns about "${topWeaknesses[0].weakness}", implementing stricter quality control measures and reviewing your production processes could help address these issues.`
+        commentary += t("analyze.commentaries.weaknesses.specific.quality", {
+          weakness: topWeaknesses[0].weakness,
+        })
       } else {
-        commentary += ` Creating a focused improvement plan for "${topWeaknesses[0].weakness}" should be prioritized to address this most common customer concern.`
+        commentary += t("analyze.commentaries.weaknesses.specific.default", {
+          weakness: topWeaknesses[0].weakness,
+        })
       }
     }
 
@@ -718,21 +910,21 @@ export default function AnalyzePage() {
     const detractorPercentage = (detractorCount / totalRatings) * 100
     const score = Math.round(promoterPercentage - detractorPercentage)
 
-    let commentary = `Your Employee Net Promoter Score (eNPS) of ${score} indicates `
+    let commentary = t("analyze.commentaries.nps.intro", { score })
 
     if (score >= 70) {
-      commentary += `an exceptional level of customer loyalty. This is an outstanding result that places you among the top-performing companies. Your customers are highly likely to recommend your brand to others, which is a powerful driver of organic growth.`
+      commentary += t("analyze.commentaries.nps.excellent")
     } else if (score >= 50) {
-      commentary += `a strong level of customer loyalty. This is a good result that suggests most of your customers are satisfied enough to recommend your brand to others. There is still room for improvement to convert more passives into promoters.`
+      commentary += t("analyze.commentaries.nps.good")
     } else if (score >= 30) {
-      commentary += `a moderate level of customer loyalty. While positive, this score suggests there's significant room for improvement. Focus on understanding what would turn your passive customers into promoters.`
+      commentary += t("analyze.commentaries.nps.moderate")
     } else if (score >= 0) {
-      commentary += `a concerning level of customer loyalty. With a score just above neutral, you have many detractors and passives. Immediate attention is needed to identify and address the issues causing customer dissatisfaction.`
+      commentary += t("analyze.commentaries.nps.concerning")
     } else {
-      commentary += `a negative level of customer loyalty. With more detractors than promoters, your business is at risk of negative word-of-mouth affecting your reputation. Urgent intervention is required to understand and address the root causes of customer dissatisfaction.`
+      commentary += t("analyze.commentaries.nps.negative")
     }
 
-    commentary += ` The eNPS is calculated by subtracting the percentage of detractors (customers who gave 1-3 stars) from the percentage of promoters (customers who gave 5 stars). Passives (4 stars) are not counted in the final calculation but represent an opportunity for improvement.`
+    commentary += t("analyze.commentaries.nps.explanation")
 
     return commentary
   }
@@ -778,20 +970,20 @@ export default function AnalyzePage() {
       }
     }
 
-    let commentary = `This timeline shows the distribution of ${totalReviews} reviews over a ${dateRange}-day period. `
+    let commentary = t("analyze.commentaries.timeline.intro", { totalReviews, dateRange })
 
     if (trend === "increasing") {
-      commentary += `There's a positive trend with review volume increasing over time, which suggests growing customer engagement and interest in sharing feedback about your product or service. This could be due to increased customer base, improved prompting for reviews, or higher customer satisfaction.`
+      commentary += t("analyze.commentaries.timeline.increasing")
     } else if (trend === "decreasing") {
-      commentary += `There's a downward trend in review volume over time, which might indicate decreasing customer engagement or changes in how reviews are being collected. Consider evaluating your review collection process or investigating if there have been changes in customer satisfaction.`
+      commentary += t("analyze.commentaries.timeline.decreasing")
     } else {
-      commentary += `The review volume has remained relatively stable over this period, indicating consistent customer engagement with your review platforms.`
+      commentary += t("analyze.commentaries.timeline.stable")
     }
 
-    commentary += ` The highest number of reviews (${peakData.count}) was received on ${peakDate}. `
+    commentary += t("analyze.commentaries.timeline.peak", { count: peakData.count, date: peakDate })
 
     if (peakData.count > 3 * (totalReviews / reviewDates.length)) {
-      commentary += `This significant spike might correspond to a specific event, promotion, product launch, or external factor that generated increased customer feedback. Understanding what drove this peak could provide insights for future engagement strategies.`
+      commentary += t("analyze.commentaries.timeline.spike")
     }
 
     return commentary
@@ -799,16 +991,12 @@ export default function AnalyzePage() {
 
   // Generate personalized commentary for temporal heatmap
   const generateHeatmapCommentary = () => {
-    return `This temporal heatmap visualizes when customers are most likely to leave reviews, broken down by day of the week and hour of the day. Darker colors indicate higher volumes of reviews during those specific time periods. This visualization helps identify patterns in customer behavior that can inform your marketing and customer service strategies.
-
-The heatmap reveals when your customers are most actively engaged with your brand online. These peak times represent optimal windows for responding to reviews promptly, launching new promotions, or scheduling social media posts for maximum visibility. Understanding these temporal patterns can help you allocate customer service resources more efficiently and time your communications for periods of high customer engagement.`
+    return t("analyze.commentaries.heatmap")
   }
 
   // Generate personalized commentary for purchase-review time
   const generatePurchaseReviewCommentary = () => {
-    return `This chart illustrates how much time typically passes between a customer's purchase and when they leave a review. Understanding this timing is crucial for optimizing your review collection strategy and interpreting feedback appropriately.
-
-Reviews left very soon after purchase (0-3 days) often reflect the initial impression, delivery experience, and customer service, while reviews left after longer periods (15+ days) tend to focus more on product durability, long-term performance, and overall satisfaction. The distribution shown here can help you determine the optimal timing for sending review request emails to maximize response rates. It also provides context for interpreting the content of reviews based on when they were submitted relative to the purchase date.`
+    return t("analyze.commentaries.purchaseReview")
   }
 
   // Generate personalized commentary for rating distribution
@@ -835,19 +1023,28 @@ Reviews left very soon after purchase (0-3 days) often reflect the initial impre
     const averageRating = ratings.reduce((sum, rating) => sum + rating, 0) / total
     const roundedAverage = Math.round(averageRating * 100) / 100
 
-    let commentary = `This chart displays the distribution of star ratings across your ${total} reviews, with an average rating of ${roundedAverage.toFixed(2)} out of 5 stars. `
+    let commentary = t("analyze.commentaries.rating.intro", {
+      total,
+      average: roundedAverage.toFixed(2),
+    })
 
     if (percentages[5] + percentages[4] > 80) {
-      commentary += `With ${percentages[5] + percentages[4]}% of reviews being 4 or 5 stars, your product or service is receiving overwhelmingly positive ratings. This excellent rating profile suggests high customer satisfaction and is likely to positively influence potential customers' purchasing decisions.`
+      commentary += t("analyze.commentaries.rating.excellent", {
+        percentage: percentages[5] + percentages[4],
+      })
     } else if (percentages[5] + percentages[4] > 60) {
-      commentary += `With ${percentages[5] + percentages[4]}% of reviews being 4 or 5 stars, your product or service is generally well-received. However, there's room for improvement in addressing the concerns of customers who left lower ratings.`
+      commentary += t("analyze.commentaries.rating.good", {
+        percentage: percentages[5] + percentages[4],
+      })
     } else if (percentages[1] + percentages[2] > 40) {
-      commentary += `With ${percentages[1] + percentages[2]}% of reviews being 1 or 2 stars, your product or service is facing significant customer satisfaction challenges. Urgent attention is needed to address the issues causing these negative ratings.`
+      commentary += t("analyze.commentaries.rating.poor", {
+        percentage: percentages[1] + percentages[2],
+      })
     } else {
-      commentary += `Your rating distribution shows a mixed reception, with ratings spread across the spectrum. This suggests inconsistent experiences among your customers, which could be due to product variability, service inconsistency, or different customer expectations.`
+      commentary += t("analyze.commentaries.rating.mixed")
     }
 
-    commentary += ` Understanding this distribution helps you gauge overall customer satisfaction and identify opportunities for improvement. Each star rating category represents different levels of customer experience that can inform targeted enhancement strategies.`
+    commentary += t("analyze.commentaries.rating.conclusion")
 
     return commentary
   }
@@ -858,17 +1055,21 @@ Reviews left very soon after purchase (0-3 days) often reflect the initial impre
 
     const { strengths, weaknesses, themes } = analysisResults
 
-    let commentary = `The marketing insights tool provides data-driven messaging strategies based on your customer sentiment analysis. `
+    let commentary = t("analyze.commentaries.marketing.intro")
 
     if (strengths && strengths.length > 0) {
-      commentary += `By leveraging your identified strengths like "${strengths[0].strength}" in your marketing arguments, you can create more compelling and authentic messaging that resonates with potential customers. `
+      commentary += t("analyze.commentaries.marketing.strengths", {
+        strength: strengths[0].strength,
+      })
     }
 
     if (weaknesses && weaknesses.length > 0) {
-      commentary += `The counter-arguments section helps you address common objections related to "${weaknesses[0].weakness}" that might be preventing conversions. `
+      commentary += t("analyze.commentaries.marketing.weaknesses", {
+        weakness: weaknesses[0].weakness,
+      })
     }
 
-    commentary += `These insights allow you to align your marketing strategy with actual customer experiences rather than assumptions. By focusing on the aspects that customers genuinely value and proactively addressing their concerns, you can create more effective marketing campaigns that drive higher conversion rates and attract customers who are more likely to be satisfied with your offering.`
+    commentary += t("analyze.commentaries.marketing.conclusion")
 
     return commentary
   }
@@ -901,19 +1102,24 @@ Reviews left very soon after purchase (0-3 days) often reflect the initial impre
     // Find peak month
     const peakMonth = [...monthlyArray].sort((a: any, b: any) => b.count - a.count)[0]
 
-    let commentary = `This chart shows the distribution of reviews by month. `
+    let commentary = t("analyze.commentaries.monthly.intro")
 
     if (monthlyArray.length > 1) {
-      commentary += `The highest volume of reviews was received in ${peakMonth.month} with ${peakMonth.count} reviews. `
+      commentary += t("analyze.commentaries.monthly.peak", {
+        month: peakMonth.month,
+        count: peakMonth.count,
+      })
 
       // Identify any seasonal patterns
       if (monthlyArray.length >= 12) {
-        commentary += `Looking at the yearly pattern, you can identify any seasonal trends in review volume that might correlate with your business cycles, marketing campaigns, or industry seasonality. `
+        commentary += t("analyze.commentaries.monthly.seasonal")
       }
 
-      commentary += `Understanding these monthly patterns can help you anticipate periods of higher review activity and allocate resources accordingly. It can also help you identify if there are specific months where you might need to be more proactive in soliciting reviews to maintain a consistent flow of feedback.`
+      commentary += t("analyze.commentaries.monthly.conclusion")
     } else {
-      commentary += `With data from only one month (${peakMonth.month}), it's not yet possible to identify trends over time. As you collect more reviews, this chart will become more valuable for identifying seasonal patterns and long-term trends in customer feedback.`
+      commentary += t("analyze.commentaries.monthly.singleMonth", {
+        month: peakMonth.month,
+      })
     }
 
     return commentary
@@ -926,11 +1132,11 @@ Reviews left very soon after purchase (0-3 days) often reflect the initial impre
       return (
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>No active subscription</AlertTitle>
-          <AlertDescription>You don't have an active subscription. Some features may be limited.</AlertDescription>
+          <AlertTitle>{t("analyze.subscription.none.title")}</AlertTitle>
+          <AlertDescription>{t("analyze.subscription.none.description")}</AlertDescription>
           <div className="mt-2">
             <Button size="sm" onClick={() => (window.location.href = "https://buy.stripe.com/8wM5kpgmA7na9eU4gg")}>
-              Upgrade Now
+              {t("analyze.subscription.upgradeButton")}
             </Button>
           </div>
         </Alert>
@@ -944,9 +1150,11 @@ Reviews left very soon after purchase (0-3 days) often reflect the initial impre
       return (
         <Alert className="mb-6 border-blue-200 bg-blue-50">
           <Info className="h-4 w-4 text-blue-600" />
-          <AlertTitle>Free Trial</AlertTitle>
+          <AlertTitle>{t("analyze.subscription.trial.title")}</AlertTitle>
           <AlertDescription>
-            You're currently on a free trial. {daysLeft > 0 ? `${daysLeft} days remaining.` : "Your trial ends today."}
+            {t("analyze.subscription.trial.description", {
+              days: daysLeft > 0 ? daysLeft : 0,
+            })}
           </AlertDescription>
           <div className="mt-2">
             <Button
@@ -954,7 +1162,7 @@ Reviews left very soon after purchase (0-3 days) often reflect the initial impre
               variant="outline"
               onClick={() => (window.location.href = "https://buy.stripe.com/8wM5kpgmA7na9eU4gg")}
             >
-              Upgrade to Standard Plan
+              {t("analyze.subscription.standardButton")}
             </Button>
           </div>
         </Alert>
@@ -965,10 +1173,12 @@ Reviews left very soon after purchase (0-3 days) often reflect the initial impre
       return (
         <Alert className="mb-6 border-green-200 bg-green-50">
           <Info className="h-4 w-4 text-green-600" />
-          <AlertTitle>Active Subscription</AlertTitle>
+          <AlertTitle>{t("analyze.subscription.active.title")}</AlertTitle>
           <AlertDescription>
-            You have an active {subscription.plan_id} subscription. Next billing date:{" "}
-            {new Date(subscription.current_period_end).toLocaleDateString()}
+            {t("analyze.subscription.active.description", {
+              plan: subscription.plan_id,
+              date: new Date(subscription.current_period_end).toLocaleDateString(),
+            })}
           </AlertDescription>
         </Alert>
       )
@@ -985,38 +1195,61 @@ Reviews left very soon after purchase (0-3 days) often reflect the initial impre
         <div className="w-full mx-auto px-4 py-12">
           {" "}
           {/* Removed max-width constraint */}
-          <h1 className="text-4xl font-bold mb-4 text-center text-white">Ad Sentiment Analyzer</h1>
+          <h1 className="text-4xl font-bold mb-4 text-center text-white">{t("analyze.title")}</h1>
           <p className="text-xl text-gray-400 mb-8 text-center">
-            Analyze customer reviews to improve your advertising messages and product features.
+            Analyze and understand customer reviews with AI-powered precision
           </p>
           {getSubscriptionBadge()}
+          <ReviewUsageCounter
+            user={user}
+            userPlan={userPlan}
+            subscription={subscription}
+            refreshTrigger={refreshUsageCounter}
+          />
           {showInputForm ? (
             <div className="max-w-6xl mx-auto">
               {" "}
               {/* Keep form centered */}
               <Tabs defaultValue="gmb" className="space-y-8">
                 <TabsList className="grid w-full grid-cols-6">
-                  <TabsTrigger value="url">Product URLs</TabsTrigger>
-                  <TabsTrigger value="text">Paste Reviews</TabsTrigger>
-                  <TabsTrigger value="file">Upload XLS</TabsTrigger>
-                  <TabsTrigger value="gmb">Google Reviews</TabsTrigger>
-                  <TabsTrigger value="tripadvisor">TripAdvisor</TabsTrigger>
-                  <TabsTrigger value="booking">Booking.com</TabsTrigger>
-                  <TabsTrigger value="advanced">Advanced Analytics</TabsTrigger>
+                  <TabsTrigger value="url">{t("analyze.tabs.url")}</TabsTrigger>
+                  <TabsTrigger value="text">{t("analyze.tabs.text")}</TabsTrigger>
+                  <TabsTrigger value="file">{t("analyze.tabs.file")}</TabsTrigger>
+                  <TabsTrigger value="gmb">{t("analyze.tabs.gmb")}</TabsTrigger>
+                  <TabsTrigger value="tripadvisor">{t("analyze.tabs.tripadvisor")}</TabsTrigger>
+                  <TabsTrigger value="booking">{t("analyze.tabs.booking")}</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="url">
                   <div className="space-y-4">
                     <Input
                       type="url"
-                      placeholder="Enter the first product URL..."
+                      placeholder={t("analyze.placeholders.url1")}
                       value={url1}
                       onChange={(e) => setUrl1(e.target.value)}
                       className="h-12 text-lg"
                     />
+                    {/* Add this new input field */}
+                    <div className="space-y-2">
+                      <label htmlFor="reviewCount" className="text-white text-sm font-medium">
+                        Number of reviews to analyze (max 1000)
+                      </label>
+                      <Input
+                        id="reviewCount"
+                        type="number"
+                        min="1"
+                        max="1000"
+                        placeholder="Enter number of reviews (default: 100)"
+                        value={reviewCount}
+                        onChange={(e) =>
+                          setReviewCount(Math.min(1000, Math.max(1, Number.parseInt(e.target.value) || 100)))
+                        }
+                        className="h-12 text-lg"
+                      />
+                    </div>
                     <Input
                       type="url"
-                      placeholder="Enter the second product URL (optional)..."
+                      placeholder={t("analyze.placeholders.url2")}
                       value={url2}
                       onChange={(e) => setUrl2(e.target.value)}
                       className="h-12 text-lg"
@@ -1026,7 +1259,7 @@ Reviews left very soon after purchase (0-3 days) often reflect the initial impre
 
                 <TabsContent value="text">
                   <Textarea
-                    placeholder="Paste your reviews here..."
+                    placeholder={t("analyze.placeholders.text")}
                     value={reviews}
                     onChange={(e) => setReviews(e.target.value)}
                     className="min-h-[200px] text-lg"
@@ -1046,59 +1279,88 @@ Reviews left very soon after purchase (0-3 days) often reflect the initial impre
 
                 <TabsContent value="gmb">
                   <div className="space-y-4">
+                    <div className="text-white mb-2 font-medium">{t("analyze.help.gmb.title")}</div>
+
                     <Input
                       type="url"
-                      placeholder="Enter Google Maps business listing URL..."
+                      placeholder="Enter Google My Business URL"
                       value={gmbUrl}
                       onChange={(e) => setGmbUrl(e.target.value)}
-                      className="h-12 text-lg"
+                      className="h-12 text-lg mb-4"
                     />
 
-                    <Alert className="bg-blue-50 border-blue-200 text-blue-800">
-                      <Info className="h-4 w-4 text-blue-500" />
-                      <AlertDescription className="text-sm">
-                        <strong>How to get the correct URL:</strong>
-                      </AlertDescription>
-                    </Alert>
+                    {/* Add this new input field */}
+                    <div className="space-y-2">
+                      <label htmlFor="reviewCount" className="text-white text-sm font-medium">
+                        Number of reviews to analyze (max 1000)
+                      </label>
+                      <Input
+                        id="reviewCount"
+                        type="number"
+                        min="1"
+                        max="1000"
+                        placeholder="Enter number of reviews (default: 100)"
+                        value={reviewCount}
+                        onChange={(e) =>
+                          setReviewCount(Math.min(1000, Math.max(1, Number.parseInt(e.target.value) || 100)))
+                        }
+                        className="h-12 text-lg"
+                      />
+                    </div>
 
-                    <ol className="list-decimal pl-5 mt-1 space-y-1 text-sm text-gray-700">
-                      <li>Go to Google Maps and search for a business</li>
-                      <li>Click on the business name to open its details</li>
-                      <li>Copy the entire URL from your browser's address bar</li>
+                    <ol className="list-decimal pl-5 mt-1 space-y-1 text-sm text-gray-300">
+                      <li>{t("analyze.help.gmb.step1")}</li>
+                      <li>{t("analyze.help.gmb.step2")}</li>
+                      <li>{t("analyze.help.gmb.step3")}</li>
                     </ol>
 
-                    <div className="text-sm text-gray-700 mt-1">
-                      <strong>Example:</strong> https://www.google.com/maps/place/Starbucks/@37.7749,-122.4194,15z/
+                    <div className="text-sm text-gray-400 mt-1">
+                      <strong>{t("analyze.help.example")}:</strong>{" "}
+                      https://www.google.com/maps/place/Starbucks/@37.7749,-122.4194,15z/
                     </div>
                   </div>
                 </TabsContent>
 
                 <TabsContent value="tripadvisor">
                   <div className="space-y-4">
+                    <div className="text-white mb-2 font-medium">{t("analyze.help.tripadvisor.title")}</div>
+
                     <Input
                       type="url"
-                      placeholder="Enter TripAdvisor review page URL..."
+                      placeholder="Enter TripAdvisor URL"
                       value={tripAdvisorUrl}
                       onChange={(e) => setTripAdvisorUrl(e.target.value)}
-                      className="h-12 text-lg"
+                      className="h-12 text-lg mb-4"
                     />
 
-                    <Alert className="bg-blue-50 border-blue-200 text-blue-800">
-                      <Info className="h-4 w-4 text-blue-500" />
-                      <AlertDescription className="text-sm">
-                        <strong>How to get the correct URL:</strong>
-                      </AlertDescription>
-                    </Alert>
+                    {/* Add this new input field */}
+                    <div className="space-y-2">
+                      <label htmlFor="reviewCount" className="text-white text-sm font-medium">
+                        Number of reviews to analyze (max 1000)
+                      </label>
+                      <Input
+                        id="reviewCount"
+                        type="number"
+                        min="1"
+                        max="1000"
+                        placeholder="Enter number of reviews (default: 100)"
+                        value={reviewCount}
+                        onChange={(e) =>
+                          setReviewCount(Math.min(1000, Math.max(1, Number.parseInt(e.target.value) || 100)))
+                        }
+                        className="h-12 text-lg"
+                      />
+                    </div>
 
-                    <ol className="list-decimal pl-5 mt-1 space-y-1 text-sm text-gray-700">
-                      <li>Go to TripAdvisor and search for a hotel, restaurant, or attraction</li>
-                      <li>Click on the listing to open its details page</li>
-                      <li>Click on the "Reviews" tab if not already there</li>
-                      <li>Copy the entire URL from your browser's address bar</li>
+                    <ol className="list-decimal pl-5 mt-1 space-y-1 text-sm text-gray-300">
+                      <li>{t("analyze.help.tripadvisor.step1")}</li>
+                      <li>{t("analyze.help.tripadvisor.step2")}</li>
+                      <li>{t("analyze.help.tripadvisor.step3")}</li>
+                      <li>{t("analyze.help.tripadvisor.step4")}</li>
                     </ol>
 
-                    <div className="text-sm text-gray-700 mt-1">
-                      <strong>Example:</strong>{" "}
+                    <div className="text-sm text-gray-400 mt-1">
+                      <strong>{t("analyze.help.example")}:</strong>{" "}
                       https://www.tripadvisor.com/Hotel_Review-g60763-d208453-Reviews-Hilton_New_York_Times_Square-New_York_City_New_York.html
                     </div>
                   </div>
@@ -1106,35 +1368,50 @@ Reviews left very soon after purchase (0-3 days) often reflect the initial impre
 
                 <TabsContent value="booking">
                   <div className="space-y-4">
+                    <div className="text-white mb-2 font-medium">{t("analyze.help.booking.title")}</div>
+
                     <Input
                       type="url"
-                      placeholder="Enter Booking.com hotel page URL..."
+                      placeholder="Enter Booking.com URL"
                       value={bookingUrl}
                       onChange={(e) => setBookingUrl(e.target.value)}
-                      className="h-12 text-lg"
+                      className="h-12 text-lg mb-4"
                     />
 
-                    <Alert className="bg-blue-50 border-blue-200 text-blue-800">
-                      <Info className="h-4 w-4 text-blue-500" />
-                      <AlertDescription className="text-sm">
-                        <strong>How to get the correct URL:</strong>
-                      </AlertDescription>
-                    </Alert>
+                    {/* Add this new input field */}
+                    <div className="space-y-2">
+                      <label htmlFor="reviewCount" className="text-white text-sm font-medium">
+                        Number of reviews to analyze (max 1000)
+                      </label>
+                      <Input
+                        id="reviewCount"
+                        type="number"
+                        min="1"
+                        max="1000"
+                        placeholder="Enter number of reviews (default: 100)"
+                        value={reviewCount}
+                        onChange={(e) =>
+                          setReviewCount(Math.min(1000, Math.max(1, Number.parseInt(e.target.value) || 100)))
+                        }
+                        className="h-12 text-lg"
+                      />
+                    </div>
 
-                    <ol className="list-decimal pl-5 mt-1 space-y-1 text-sm text-gray-700">
-                      <li>Go to Booking.com and search for a hotel</li>
-                      <li>Click on the hotel to open its details page</li>
-                      <li>Make sure you're on the hotel's main page or reviews page</li>
-                      <li>Copy the entire URL from your browser's address bar</li>
+                    <ol className="list-decimal pl-5 mt-1 space-y-1 text-sm text-gray-300">
+                      <li>{t("analyze.help.booking.step1")}</li>
+                      <li>{t("analyze.help.booking.step2")}</li>
+                      <li>{t("analyze.help.booking.step3")}</li>
+                      <li>{t("analyze.help.booking.step4")}</li>
                     </ol>
 
-                    <div className="text-sm text-gray-700 mt-1">
-                      <strong>Example:</strong> https://www.booking.com/hotel/us/bellagio.html
+                    <div className="text-sm text-gray-400 mt-1">
+                      <strong>{t("analyze.help.example")}:</strong> https://www.booking.com/hotel/us/bellagio.html
                     </div>
                   </div>
                 </TabsContent>
 
                 <div className="flex justify-center">
+                  {/* Update the loading button to show progress: */}
                   <Button
                     onClick={handleAnalyze}
                     disabled={loading}
@@ -1162,10 +1439,17 @@ Reviews left very soon after purchase (0-3 days) often reflect the initial impre
                             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                           ></path>
                         </svg>
-                        Analyzing...
+                        <div className="flex flex-col items-start">
+                          <span>{loadingProgress || t("analyze.buttons.analyzing")}</span>
+                          {loadingStep > 0 && (
+                            <span className="text-xs opacity-75">
+                              Step {loadingStep} of {totalSteps}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     ) : (
-                      "Analyze Sentiment"
+                      t("analyze.buttons.analyze")
                     )}
                   </Button>
                 </div>
@@ -1175,29 +1459,35 @@ Reviews left very soon after purchase (0-3 days) often reflect the initial impre
             <div className="w-full mx-auto mb-8 flex items-center justify-between">
               <Button variant="outline" onClick={resetAnalysis} className="gap-2 text-white">
                 <ArrowLeft className="h-4 w-4" />
-                New Analysis
+                {t("analyze.buttons.newAnalysis")}
               </Button>
-              {currentUrl && user && !isBulkAnalysis && (
-                <SaveEstablishment
-                  url={currentUrl}
-                  userId={user.id}
-                  analysisType={analysisType}
-                  analysisResults={analysisResults}
-                />
-              )}
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={handleDownloadPDF} className="gap-2 text-white">
+                  <Download className="h-4 w-4" />
+                  {t("analyze.buttons.downloadPDF")}
+                </Button>
+                {currentUrl && user && !isBulkAnalysis && (
+                  <SaveEstablishment
+                    url={currentUrl}
+                    userId={user.id}
+                    analysisType={analysisType}
+                    analysisResults={analysisResults}
+                  />
+                )}
+              </div>
             </div>
           )}
           {error && (
             <div className="mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded max-w-6xl mx-auto">
-              <p className="font-semibold">Error:</p>
+              <p className="font-semibold">{t("analyze.errors.title")}:</p>
               <p>{error}</p>
               {error.includes("Invalid Google Maps URL") && (
                 <div className="mt-2 text-sm">
-                  <p className="font-semibold">Please ensure your Google Maps URL:</p>
+                  <p className="font-semibold">{t("analyze.errors.gmbHelp.title")}:</p>
                   <ul className="list-disc pl-5 mt-1">
-                    <li>Is from Google Maps (contains "google.com/maps")</li>
-                    <li>Points to a specific business listing (contains "/place/")</li>
-                    <li>Is copied directly from your browser's address bar</li>
+                    <li>{t("analyze.errors.gmbHelp.tip1")}</li>
+                    <li>{t("analyze.errors.gmbHelp.tip2")}</li>
+                    <li>{t("analyze.errors.gmbHelp.tip3")}</li>
                   </ul>
                 </div>
               )}
@@ -1205,17 +1495,16 @@ Reviews left very soon after purchase (0-3 days) often reflect the initial impre
           )}
           {analysisResults && (
             <div className="mt-8 bg-white p-6 rounded-lg w-full">
-              <h2 className="text-2xl font-bold mb-4">Analysis Results</h2>
+              <h2 className="text-2xl font-bold mb-4">{t("analyze.results.title")}</h2>
 
               {/* Analysis Tabs */}
               <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
                 <TabsList className="grid grid-cols-5 mb-6">
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="sentiment">Sentiment</TabsTrigger>
-                  <TabsTrigger value="themes">Themes</TabsTrigger>
-                  <TabsTrigger value="customer">Customer Insights</TabsTrigger>
-                  <TabsTrigger value="marketing">Marketing</TabsTrigger>
-                  <TabsTrigger value="advanced">Advanced Analytics</TabsTrigger>
+                  <TabsTrigger value="overview">{t("analyze.results.tabs.overview")}</TabsTrigger>
+                  <TabsTrigger value="sentiment">{t("analyze.results.tabs.sentiment")}</TabsTrigger>
+                  <TabsTrigger value="themes">{t("analyze.results.tabs.themes")}</TabsTrigger>
+                  <TabsTrigger value="customer">{t("analyze.results.tabs.customer")}</TabsTrigger>
+                  <TabsTrigger value="marketing">{t("analyze.results.tabs.marketing")}</TabsTrigger>
                 </TabsList>
 
                 {/* Overview Tab */}
@@ -1227,12 +1516,16 @@ Reviews left very soon after purchase (0-3 days) often reflect the initial impre
                         const { avgRating, avgLength } = calculateAverageRating()
                         const sentimentScore = analysisResults.sentiment.positive
                         return (
-                          <AnalysisSummaryCards
-                            totalReviews={analysisResults.reviewCount}
-                            averageRating={avgRating}
-                            sentimentScore={sentimentScore}
-                            averageReviewLength={avgLength}
-                          />
+                          <>
+                            <AnalysisSummaryCards
+                              totalReviews={analysisResults.reviewCount}
+                              averageRating={avgRating}
+                              sentimentScore={sentimentScore}
+                              averageReviewLength={avgLength}
+                            />
+
+                            <AnalysisInsightsSummary analysisResults={analysisResults} />
+                          </>
                         )
                       })()}
 
@@ -1241,21 +1534,30 @@ Reviews left very soon after purchase (0-3 days) often reflect the initial impre
                       {/* Sentiment Pie Chart */}
                       <Card>
                         <CardHeader>
-                          <CardTitle>Sentiment Distribution</CardTitle>
+                          <CardTitle>{t("analyze.results.cards.sentiment.title")}</CardTitle>
                         </CardHeader>
                         <CardContent>
                           <SentimentPieChart
                             data={[
-                              { name: "Positive", value: analysisResults.sentiment.positive },
-                              { name: "Negative", value: analysisResults.sentiment.negative },
-                              { name: "Neutral", value: analysisResults.sentiment.neutral },
+                              {
+                                name: t("analyze.results.sentiment.positive"),
+                                value: analysisResults.sentiment.positive,
+                              },
+                              {
+                                name: t("analyze.results.sentiment.negative"),
+                                value: analysisResults.sentiment.negative,
+                              },
+                              {
+                                name: t("analyze.results.sentiment.neutral"),
+                                value: analysisResults.sentiment.neutral,
+                              },
                             ]}
                             reviewCount={analysisResults.reviewCount}
                             topStrengths={analysisResults.strengths}
                             topWeaknesses={analysisResults.weaknesses}
                           />
                           <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                            <h3 className="text-lg font-semibold mb-2">Analysis Insights</h3>
+                            <h3 className="text-lg font-semibold mb-2">{t("analyze.results.cards.insights")}</h3>
                             <p className="text-gray-700 leading-relaxed">{generateSentimentCommentary()}</p>
                           </div>
                         </CardContent>
@@ -1264,14 +1566,23 @@ Reviews left very soon after purchase (0-3 days) often reflect the initial impre
                       {/* Tone Breakdown */}
                       <Card>
                         <CardHeader>
-                          <CardTitle>Tone Breakdown</CardTitle>
+                          <CardTitle>{t("analyze.results.cards.tone.title")}</CardTitle>
                         </CardHeader>
                         <CardContent>
                           <ToneBarChart
                             data={[
-                              { name: "Positive", value: analysisResults.sentiment.positive },
-                              { name: "Neutral", value: analysisResults.sentiment.neutral },
-                              { name: "Negative", value: analysisResults.sentiment.negative },
+                              {
+                                name: t("analyze.results.sentiment.positive"),
+                                value: analysisResults.sentiment.positive,
+                              },
+                              {
+                                name: t("analyze.results.sentiment.neutral"),
+                                value: analysisResults.sentiment.neutral,
+                              },
+                              {
+                                name: t("analyze.results.sentiment.negative"),
+                                value: analysisResults.sentiment.negative,
+                              },
                             ]}
                             topStrengths={analysisResults.strengths}
                             topWeaknesses={analysisResults.weaknesses}
@@ -1282,12 +1593,14 @@ Reviews left very soon after purchase (0-3 days) often reflect the initial impre
                       {/* Emotions Bar Chart */}
                       <Card>
                         <CardHeader>
-                          <CardTitle>Emotional Analysis</CardTitle>
+                          <CardTitle>{t("analyze.results.cards.emotions.title")}</CardTitle>
                         </CardHeader>
                         <CardContent>
                           <EmotionsBarChart data={analysisResults.emotions} reviewCount={analysisResults.reviewCount} />
                           <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                            <h3 className="text-lg font-semibold mb-2">Emotional Insights</h3>
+                            <h3 className="text-lg font-semibold mb-2">
+                              {t("analyze.results.cards.emotions.insights")}
+                            </h3>
                             <p className="text-gray-700 leading-relaxed">{generateEmotionsCommentary()}</p>
                           </div>
                         </CardContent>
@@ -1296,7 +1609,7 @@ Reviews left very soon after purchase (0-3 days) often reflect the initial impre
                       {/* Keyword Cloud */}
                       <Card>
                         <CardHeader>
-                          <CardTitle>Key Themes</CardTitle>
+                          <CardTitle>{t("analyze.results.cards.themes.title")}</CardTitle>
                         </CardHeader>
                         <CardContent>
                           <KeywordCloud
@@ -1306,212 +1619,324 @@ Reviews left very soon after purchase (0-3 days) often reflect the initial impre
                             }))}
                           />
                           <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                            <h3 className="text-lg font-semibold mb-2">Theme Insights</h3>
+                            <h3 className="text-lg font-semibold mb-2">{t("analyze.results.cards.themes.insights")}</h3>
                             <p className="text-gray-700 leading-relaxed">{generateThemesCommentary()}</p>
                           </div>
                         </CardContent>
                       </Card>
 
-                      {/* Strengths */}
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Top Strengths</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <StrengthsWeaknessesBarChart data={analysisResults.strengths} type="strengths" />
-                          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                            <h3 className="text-lg font-semibold mb-2">Strengths Analysis</h3>
-                            <p className="text-gray-700 leading-relaxed">{generateStrengthsCommentary()}</p>
-                          </div>
-                        </CardContent>
-                      </Card>
+                      {/* Strengths and Weaknesses */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Strengths */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>{t("analyze.results.cards.strengths.title")}</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <StrengthsWeaknessesBarChart
+                              strengths={analysisResults.strengths.map((s: any) => ({
+                                name: s.strength,
+                                value: s.count,
+                              }))}
+                            />
+                            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                              <h3 className="text-lg font-semibold mb-2">
+                                {t("analyze.results.cards.strengths.analysis")}
+                              </h3>
+                              <p className="text-gray-700 leading-relaxed">{generateStrengthsCommentary()}</p>
+                            </div>
+                          </CardContent>
+                        </Card>
 
-                      {/* Weaknesses */}
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Weaknesses cited</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <StrengthsWeaknessesBarChart data={analysisResults.weaknesses} type="weaknesses" />
-                          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                            <h3 className="text-lg font-semibold mb-2">Improvement Opportunities</h3>
-                            <p className="text-gray-700 leading-relaxed">{generateWeaknessesCommentary()}</p>
-                          </div>
-                        </CardContent>
-                      </Card>
+                        {/* Weaknesses */}
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>{t("analyze.results.cards.weaknesses.title")}</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <StrengthsWeaknessesBarChart
+                              weaknesses={analysisResults.weaknesses.map((w: any) => ({
+                                name: w.weakness,
+                                value: w.count,
+                              }))}
+                            />
+                            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                              <h3 className="text-lg font-semibold mb-2">
+                                {t("analyze.results.cards.weaknesses.insights")}
+                              </h3>
+                              <p className="text-gray-700 leading-relaxed">{generateWeaknessesCommentary()}</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
 
                       {/* Net Promoter Score */}
+                      {analysisResults.reviewSummary && analysisResults.reviewSummary.length > 0 && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Net Promoter Score (eNPS)</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <NetPromoterScore
+                              ratings={analysisResults.reviewSummary.map((r: any) => Math.round(r.score * 5))}
+                            />
+                            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                              <h3 className="text-lg font-semibold mb-2">NPS Analysis</h3>
+                              <p className="text-gray-700 leading-relaxed">{generateNPSCommentary()}</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {/* Rating Distribution Chart */}
+                      {analysisResults.reviewSummary && analysisResults.reviewSummary.length > 0 && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Rating Distribution</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <RatingDistributionChart
+                              ratings={analysisResults.reviewSummary.map((r: any) => Math.round(r.score * 5))}
+                            />
+                            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                              <h3 className="text-lg font-semibold mb-2">Rating Analysis</h3>
+                              <p className="text-gray-700 leading-relaxed">{generateRatingCommentary()}</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {/* Rating Box Plot Analysis */}
+                      {analysisResults.reviewSummary && analysisResults.reviewSummary.length > 0 && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Rating Distribution Box Plot</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <RatingBoxPlot
+                              ratings={analysisResults.reviewSummary.map((r: any) => Math.round(r.score * 5))}
+                            />
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {/* Review Timeline */}
+                      {hasReviewDatesData() && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Review Timeline</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <ReviewCountGraph data={analysisResults.reviewDates} />
+                            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                              <h3 className="text-lg font-semibold mb-2">Timeline Insights</h3>
+                              <p className="text-gray-700 leading-relaxed">{generateTimelineCommentary()}</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {/* Notices Per Month Chart */}
+                      {hasReviewDatesData() && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Reviews Per Month</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <NoticesPerMonthChart data={analysisResults.reviewDates} />
+                            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                              <h3 className="text-lg font-semibold mb-2">Monthly Trends</h3>
+                              <p className="text-gray-700 leading-relaxed">{generateNoticesPerMonthCommentary()}</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {/* Temporal Heatmap */}
+                      {hasReviewDatesData() && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Review Activity Heatmap</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <TemporalHeatmap data={analysisResults.reviewDates} />
+                            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                              <h3 className="text-lg font-semibold mb-2">Activity Patterns</h3>
+                              <p className="text-gray-700 leading-relaxed">{generateHeatmapCommentary()}</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {/* Time Between Purchase and Review */}
                       <Card>
                         <CardHeader>
-                          <CardTitle>Net Promoter Score</CardTitle>
+                          <CardTitle>Time Between Purchase and Review</CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <NetPromoterScore
-                            ratings={analysisResults.reviewSummary.map((r: any) => Math.round(r.score * 5))}
-                          />
+                          <TimeBetweenPurchaseReview />
                           <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                            <h3 className="text-lg font-semibold mb-2">NPS Insights</h3>
-                            <p className="text-gray-700 leading-relaxed">{generateNPSCommentary()}</p>
+                            <h3 className="text-lg font-semibold mb-2">Purchase-Review Timing</h3>
+                            <p className="text-gray-700 leading-relaxed">{generatePurchaseReviewCommentary()}</p>
                           </div>
                         </CardContent>
                       </Card>
 
-                      {/* Rating Distribution */}
-                      <Card className="mb-6">
+                      {/* Opinion Trend Graph */}
+                      <Card>
                         <CardHeader>
-                          <CardTitle>Rating Distribution</CardTitle>
+                          <CardTitle>Opinion Trend</CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <RatingDistributionChart
-                            ratings={analysisResults.reviewSummary.map((r: any) => r.score * 5)}
-                          />
-                          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                            <h3 className="text-lg font-semibold mb-2">Rating Insights</h3>
-                            <p className="text-gray-700 leading-relaxed">{generateRatingCommentary()}</p>
-                          </div>
+                          <OpinionTrendGraph data={analysisResults.comprehensiveAnalysis?.trend || "stable"} />
                         </CardContent>
                       </Card>
 
-                      {/* Marketing Insights */}
-                      <Card className="mb-6">
+                      {/* Satisfaction Flow Chart */}
+                      <Card>
                         <CardHeader>
-                          <CardTitle>Marketing Insights</CardTitle>
+                          <CardTitle>Customer Satisfaction Flow</CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <ProductPromotionArguments
-                            strengths={analysisResults.strengths}
-                            weaknesses={analysisResults.weaknesses}
-                            keywords={analysisResults.themes.map((theme: any) => ({
-                              text: theme.theme,
-                              value: theme.count,
-                            }))}
+                          <SatisfactionFlowChart
+                            data={{
+                              nodes: [
+                                { name: "Unhappy Customer" },
+                                { name: "Neutral Experience" },
+                                { name: "Positive Experience" },
+                                { name: "Negative Review" },
+                                { name: "Moderate Review" },
+                                { name: "Positive Review" },
+                                { name: "Lost Customer" },
+                                { name: "Repeat Customer" },
+                                { name: "Brand Advocate" },
+                              ],
+                              links: [
+                                {
+                                  source: 0,
+                                  target: 3,
+                                  value: Math.round((analysisResults.sentiment?.negative || 0) * 0.3),
+                                },
+                                {
+                                  source: 0,
+                                  target: 4,
+                                  value: Math.round((analysisResults.sentiment?.negative || 0) * 0.1),
+                                },
+                                {
+                                  source: 1,
+                                  target: 3,
+                                  value: Math.round((analysisResults.sentiment?.neutral || 0) * 0.1),
+                                },
+                                {
+                                  source: 1,
+                                  target: 4,
+                                  value: Math.round((analysisResults.sentiment?.neutral || 0) * 0.6),
+                                },
+                                {
+                                  source: 1,
+                                  target: 5,
+                                  value: Math.round((analysisResults.sentiment?.neutral || 0) * 0.3),
+                                },
+                                {
+                                  source: 2,
+                                  target: 4,
+                                  value: Math.round((analysisResults.sentiment?.positive || 0) * 0.1),
+                                },
+                                {
+                                  source: 2,
+                                  target: 5,
+                                  value: Math.round((analysisResults.sentiment?.positive || 0) * 0.8),
+                                },
+                                {
+                                  source: 3,
+                                  target: 6,
+                                  value: Math.round((analysisResults.sentiment?.negative || 0) * 0.35),
+                                },
+                                {
+                                  source: 3,
+                                  target: 7,
+                                  value: Math.round((analysisResults.sentiment?.negative || 0) * 0.05),
+                                },
+                                {
+                                  source: 4,
+                                  target: 6,
+                                  value: Math.round((analysisResults.sentiment?.neutral || 0) * 0.2),
+                                },
+                                {
+                                  source: 4,
+                                  target: 7,
+                                  value: Math.round((analysisResults.sentiment?.neutral || 0) * 0.6),
+                                },
+                                {
+                                  source: 4,
+                                  target: 8,
+                                  value: Math.round((analysisResults.sentiment?.neutral || 0) * 0.1),
+                                },
+                                {
+                                  source: 5,
+                                  target: 7,
+                                  value: Math.round((analysisResults.sentiment?.positive || 0) * 0.3),
+                                },
+                                {
+                                  source: 5,
+                                  target: 8,
+                                  value: Math.round((analysisResults.sentiment?.positive || 0) * 0.6),
+                                },
+                              ],
+                            }}
                           />
-                          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                            <h3 className="text-lg font-semibold mb-2">Marketing Commentary</h3>
-                            <p className="text-gray-700 leading-relaxed">{generateMarketingCommentary()}</p>
-                          </div>
                         </CardContent>
                       </Card>
 
                       {/* Review Summary Table */}
-                      <Card className="mb-6">
-                        <CardHeader>
-                          <CardTitle>Summary of Reviews</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <ReviewSummaryTable reviews={analysisResults.reviewSummary} />
-                        </CardContent>
-                      </Card>
+                      {analysisResults.reviewSummary && analysisResults.reviewSummary.length > 0 && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Review Summary</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <ReviewSummaryTable reviews={analysisResults.reviewSummary} pageSize={10} />
+                          </CardContent>
+                        </Card>
+                      )}
 
-                      {/* Rating Box Plot */}
+                      {/* Influential Reviews Analysis */}
                       <Card>
                         <CardHeader>
-                          <CardTitle>Rating Distribution by Category</CardTitle>
+                          <CardTitle>Most Influential Reviews</CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <RatingBoxPlot reviewData={analysisResults.reviewSummary} />
-                        </CardContent>
-                      </Card>
-
-                      {/* Review Clustering Graph */}
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Review Clustering</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <ReviewClusteringGraph reviewData={analysisResults.reviewSummary} />
+                          <InfluentialReviews reviewData={analysisResults.reviewSummary || []} />
                         </CardContent>
                       </Card>
 
                       {/* Negative Review Prediction */}
                       <Card>
                         <CardHeader>
-                          <CardTitle>Negative Review Prediction</CardTitle>
+                          <CardTitle>Negative Review Prediction Model</CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <NegativeReviewPrediction reviewData={analysisResults.reviewSummary} />
+                          <NegativeReviewPrediction reviewData={analysisResults.reviewSummary || []} />
                         </CardContent>
                       </Card>
 
-                      {/* Influential Reviews */}
+                      {/* K-means Review Clustering */}
                       <Card>
                         <CardHeader>
-                          <CardTitle>Influential Reviews</CardTitle>
+                          <CardTitle>Review Clustering Analysis (K-means)</CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <InfluentialReviews reviewData={analysisResults.reviewSummary} />
-                        </CardContent>
-                      </Card>
-
-                      {/* Review Timeline Graph */}
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Review Timeline</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          {hasReviewDatesData() ? (
-                            <ReviewTimelineGraph data={analysisResults.reviewDates} />
-                          ) : (
-                            <div className="text-center p-8 bg-gray-50 rounded-lg">
-                              <p className="text-gray-500">Data not available in your document</p>
-                            </div>
-                          )}
-                          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                            <h3 className="text-lg font-semibold mb-2">Timeline Insights</h3>
-                            <p className="text-gray-700 leading-relaxed">
-                              {hasReviewDatesData()
-                                ? generateTimelineCommentary()
-                                : "Data not available in your document"}
-                            </p>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      {/* Notices Per Month Chart */}
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Reviews Per Month</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          {hasReviewDatesData() ? (
-                            <NoticesPerMonthChart data={analysisResults.reviewDates} />
-                          ) : (
-                            <div className="text-center p-8 bg-gray-50 rounded-lg">
-                              <p className="text-gray-500">Data not available in your document</p>
-                            </div>
-                          )}
-                          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                            <h3 className="text-lg font-semibold mb-2">Monthly Distribution Insights</h3>
-                            <p className="text-gray-700 leading-relaxed">
-                              {hasReviewDatesData()
-                                ? generateNoticesPerMonthCommentary()
-                                : "Data not available in your document"}
-                            </p>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      {/* Temporal Heatmap */}
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Review Timing Heatmap</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          {hasReviewDatesData() ? (
-                            <TemporalHeatmap data={analysisResults.reviewDates} />
-                          ) : (
-                            <div className="text-center p-8 bg-gray-50 rounded-lg">
-                              <p className="text-gray-500">Data not available in your document</p>
-                            </div>
-                          )}
-                          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                            <h3 className="text-lg font-semibold mb-2">Timing Pattern Insights</h3>
-                            <p className="text-gray-700 leading-relaxed">
-                              {hasReviewDatesData()
-                                ? generateHeatmapCommentary()
-                                : "Data not available in your document"}
-                            </p>
-                          </div>
+                          <ReviewClusteringGraph
+                            reviewData={analysisResults.reviewSummary || []}
+                            clusters={[
+                              { id: 0, x: 0.8, y: 0.3, z: 0.7, name: "Quality Positive" },
+                              { id: 1, x: 0.2, y: 0.7, z: 0.3, name: "Quality Negative" },
+                              { id: 2, x: 0.7, y: 0.3, z: 0.6, name: "Price Positive" },
+                              { id: 3, x: 0.3, y: 0.6, z: 0.4, name: "Price Negative" },
+                              { id: 4, x: 0.8, y: 0.4, z: 0.8, name: "Experience Positive" },
+                              { id: 5, x: 0.3, y: 0.6, z: 0.2, name: "Experience Negative" },
+                            ]}
+                          />
                         </CardContent>
                       </Card>
                     </div>
@@ -1520,92 +1945,128 @@ Reviews left very soon after purchase (0-3 days) often reflect the initial impre
 
                 {/* Sentiment Tab */}
                 <TabsContent value="sentiment">
-                  {analysisResults && (
-                    <div className="space-y-6">
-                      {/* Sentiment Pie Chart */}
+                  <div className="space-y-8">
+                    {/* Sentiment Pie Chart */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>{t("analyze.results.cards.sentiment.title")}</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <SentimentPieChart
+                          data={[
+                            {
+                              name: t("analyze.results.sentiment.positive"),
+                              value: analysisResults.sentiment.positive,
+                            },
+                            {
+                              name: t("analyze.results.sentiment.negative"),
+                              value: analysisResults.sentiment.negative,
+                            },
+                            {
+                              name: t("analyze.results.sentiment.neutral"),
+                              value: analysisResults.sentiment.neutral,
+                            },
+                          ]}
+                          reviewCount={analysisResults.reviewCount}
+                          topStrengths={analysisResults.strengths}
+                          topWeaknesses={analysisResults.weaknesses}
+                        />
+                        <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                          <h3 className="text-lg font-semibold mb-2">{t("analyze.results.cards.insights")}</h3>
+                          <p className="text-gray-700 leading-relaxed">{generateSentimentCommentary()}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Net Promoter Score */}
+                    {analysisResults.reviewSummary && analysisResults.reviewSummary.length > 0 && (
                       <Card>
                         <CardHeader>
-                          <CardTitle>Sentiment Distribution</CardTitle>
+                          <CardTitle>Net Promoter Score (eNPS)</CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <SentimentPieChart
-                            data={[
-                              { name: "Positive", value: analysisResults.sentiment.positive },
-                              { name: "Negative", value: analysisResults.sentiment.negative },
-                              { name: "Neutral", value: analysisResults.sentiment.neutral },
-                            ]}
-                            reviewCount={analysisResults.reviewCount}
-                            topStrengths={analysisResults.strengths}
-                            topWeaknesses={analysisResults.weaknesses}
-                          />
-                          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                            <h3 className="text-lg font-semibold mb-2">Analysis Insights</h3>
-                            <p className="text-gray-700 leading-relaxed">{generateSentimentCommentary()}</p>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      {/* Tone Breakdown */}
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Tone Breakdown</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <ToneBarChart
-                            data={[
-                              { name: "Positive", value: analysisResults.sentiment.positive },
-                              { name: "Neutral", value: analysisResults.sentiment.neutral },
-                              { name: "Negative", value: analysisResults.sentiment.negative },
-                            ]}
-                            topStrengths={analysisResults.strengths}
-                            topWeaknesses={analysisResults.weaknesses}
+                          <NetPromoterScore
+                            ratings={analysisResults.reviewSummary.map((r: any) => Math.round(r.score * 5))}
                           />
                         </CardContent>
                       </Card>
+                    )}
 
-                      {/* Rating Distribution */}
+                    {/* Rating Distribution Chart */}
+                    {analysisResults.reviewSummary && analysisResults.reviewSummary.length > 0 && (
                       <Card>
                         <CardHeader>
                           <CardTitle>Rating Distribution</CardTitle>
                         </CardHeader>
                         <CardContent>
                           <RatingDistributionChart
-                            ratings={analysisResults.reviewSummary.map((r: any) => r.score * 5)}
-                          />
-                          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                            <h3 className="text-lg font-semibold mb-2">Rating Insights</h3>
-                            <p className="text-gray-700 leading-relaxed">{generateRatingCommentary()}</p>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      {/* Net Promoter Score */}
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Net Promoter Score</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <NetPromoterScore
                             ratings={analysisResults.reviewSummary.map((r: any) => Math.round(r.score * 5))}
                           />
-                          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                            <h3 className="text-lg font-semibold mb-2">NPS Insights</h3>
-                            <p className="text-gray-700 leading-relaxed">{generateNPSCommentary()}</p>
-                          </div>
                         </CardContent>
                       </Card>
-                    </div>
-                  )}
+                    )}
+
+                    {/* Rating Box Plot in Sentiment tab */}
+                    {analysisResults.reviewSummary && analysisResults.reviewSummary.length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Rating Statistical Analysis</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <RatingBoxPlot
+                            ratings={analysisResults.reviewSummary.map((r: any) => Math.round(r.score * 5))}
+                          />
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Tone Breakdown */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>{t("analyze.results.cards.tone.title")}</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ToneBarChart
+                          data={[
+                            {
+                              name: t("analyze.results.sentiment.positive"),
+                              value: analysisResults.sentiment.positive,
+                            },
+                            {
+                              name: t("analyze.results.sentiment.neutral"),
+                              value: analysisResults.sentiment.neutral,
+                            },
+                            {
+                              name: t("analyze.results.sentiment.negative"),
+                              value: analysisResults.sentiment.negative,
+                            },
+                          ]}
+                          topStrengths={analysisResults.strengths}
+                          topWeaknesses={analysisResults.weaknesses}
+                        />
+                      </CardContent>
+                    </Card>
+
+                    {/* Influential Reviews */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>{t("analyze.results.cards.influential.title")}</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <InfluentialReviews reviews={analysisResults.reviewSummary || []} />
+                      </CardContent>
+                    </Card>
+                  </div>
                 </TabsContent>
 
                 {/* Themes Tab */}
                 <TabsContent value="themes">
-                  {analysisResults && (
-                    <div className="space-y-6">
-                      {/* Keyword Cloud */}
+                  <div className="space-y-8">
+                    {/* Keyword Cloud */}
+                    {analysisResults.themes && analysisResults.themes.length > 0 && (
                       <Card>
                         <CardHeader>
-                          <CardTitle>Key Themes</CardTitle>
+                          <CardTitle>{t("analyze.results.cards.themes.title")}</CardTitle>
                         </CardHeader>
                         <CardContent>
                           <KeywordCloud
@@ -1615,341 +2076,341 @@ Reviews left very soon after purchase (0-3 days) often reflect the initial impre
                             }))}
                           />
                           <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                            <h3 className="text-lg font-semibold mb-2">Theme Insights</h3>
+                            <h3 className="text-lg font-semibold mb-2">{t("analyze.results.cards.themes.insights")}</h3>
                             <p className="text-gray-700 leading-relaxed">{generateThemesCommentary()}</p>
                           </div>
                         </CardContent>
                       </Card>
+                    )}
 
-                      {/* Strengths */}
+                    {/* Emotions Bar Chart */}
+                    {analysisResults.emotions && analysisResults.emotions.length > 0 && (
                       <Card>
                         <CardHeader>
-                          <CardTitle>Top Strengths</CardTitle>
+                          <CardTitle>{t("analyze.results.cards.emotions.title")}</CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <StrengthsWeaknessesBarChart data={analysisResults.strengths} type="strengths" />
+                          <EmotionsBarChart
+                            data={analysisResults.emotions || []}
+                            reviewCount={analysisResults.reviewCount}
+                          />
                           <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                            <h3 className="text-lg font-semibold mb-2">Strengths Analysis</h3>
-                            <p className="text-gray-700 leading-relaxed">{generateStrengthsCommentary()}</p>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      {/* Weaknesses */}
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Weaknesses cited</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <StrengthsWeaknessesBarChart data={analysisResults.weaknesses} type="weaknesses" />
-                          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                            <h3 className="text-lg font-semibold mb-2">Improvement Opportunities</h3>
-                            <p className="text-gray-700 leading-relaxed">{generateWeaknessesCommentary()}</p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  )}
-                </TabsContent>
-
-                {/* Customer Insights Tab */}
-                <TabsContent value="customer">
-                  {analysisResults && (
-                    <div className="space-y-6">
-                      {/* Emotions Bar Chart */}
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Emotional Analysis</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <EmotionsBarChart data={analysisResults.emotions} reviewCount={analysisResults.reviewCount} />
-                          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                            <h3 className="text-lg font-semibold mb-2">Emotional Insights</h3>
+                            <h3 className="text-lg font-semibold mb-2">
+                              {t("analyze.results.cards.emotions.insights")}
+                            </h3>
                             <p className="text-gray-700 leading-relaxed">{generateEmotionsCommentary()}</p>
                           </div>
                         </CardContent>
                       </Card>
+                    )}
 
-                      {/* Review Timeline Graph */}
+                    {/* Strengths and Weaknesses */}
+                    {((analysisResults.strengths && analysisResults.strengths.length > 0) ||
+                      (analysisResults.weaknesses && analysisResults.weaknesses.length > 0)) && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Strengths */}
+                        {analysisResults.strengths && analysisResults.strengths.length > 0 && (
+                          <Card>
+                            <CardHeader>
+                              <CardTitle>{t("analyze.results.cards.strengths.title")}</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <StrengthsWeaknessesBarChart
+                                strengths={analysisResults.strengths.map((s: any) => ({
+                                  name: s.strength,
+                                  value: s.count,
+                                }))}
+                              />
+                              <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                <h3 className="text-lg font-semibold mb-2">
+                                  {t("analyze.results.cards.strengths.analysis")}
+                                </h3>
+                                <p className="text-gray-700 leading-relaxed">{generateStrengthsCommentary()}</p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
+
+                        {/* Weaknesses */}
+                        {analysisResults.weaknesses && analysisResults.weaknesses.length > 0 && (
+                          <Card>
+                            <CardHeader>
+                              <CardTitle>{t("analyze.results.cards.weaknesses.title")}</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                              <StrengthsWeaknessesBarChart
+                                weaknesses={analysisResults.weaknesses.map((w: any) => ({
+                                  name: w.weakness,
+                                  value: w.count,
+                                }))}
+                              />
+                              <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                <h3 className="text-lg font-semibold mb-2">
+                                  {t("analyze.results.cards.weaknesses.insights")}
+                                </h3>
+                                <p className="text-gray-700 leading-relaxed">{generateWeaknessesCommentary()}</p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Review Timeline */}
+                    {hasReviewDatesData() && (
                       <Card>
                         <CardHeader>
                           <CardTitle>Review Timeline</CardTitle>
                         </CardHeader>
                         <CardContent>
-                          {hasReviewDatesData() ? (
-                            <ReviewTimelineGraph data={analysisResults.reviewDates} />
-                          ) : (
-                            <div className="text-center p-8 bg-gray-50 rounded-lg">
-                              <p className="text-gray-500">Data not available in your document</p>
-                            </div>
-                          )}
-                          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                            <h3 className="text-lg font-semibold mb-2">Timeline Insights</h3>
-                            <p className="text-gray-700 leading-relaxed">
-                              {hasReviewDatesData()
-                                ? generateTimelineCommentary()
-                                : "Data not available in your document"}
-                            </p>
-                          </div>
+                          <ReviewCountGraph data={analysisResults.reviewDates} />
                         </CardContent>
                       </Card>
+                    )}
 
-                      {/* Notices Per Month Chart */}
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Reviews Per Month</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          {hasReviewDatesData() ? (
-                            <NoticesPerMonthChart data={analysisResults.reviewDates} />
-                          ) : (
-                            <div className="text-center p-8 bg-gray-50 rounded-lg">
-                              <p className="text-gray-500">Data not available in your document</p>
-                            </div>
-                          )}
-                          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                            <h3 className="text-lg font-semibold mb-2">Monthly Distribution Insights</h3>
-                            <p className="text-gray-700 leading-relaxed">
-                              {hasReviewDatesData()
-                                ? generateNoticesPerMonthCommentary()
-                                : "Data not available in your document"}
-                            </p>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      {/* Temporal Heatmap */}
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Review Timing Heatmap</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          {hasReviewDatesData() ? (
-                            <TemporalHeatmap data={analysisResults.reviewDates} />
-                          ) : (
-                            <div className="text-center p-8 bg-gray-50 rounded-lg">
-                              <p className="text-gray-500">Data not available in your document</p>
-                            </div>
-                          )}
-                          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                            <h3 className="text-lg font-semibold mb-2">Timing Pattern Insights</h3>
-                            <p className="text-gray-700 leading-relaxed">
-                              {hasReviewDatesData()
-                                ? generateHeatmapCommentary()
-                                : "Data not available in your document"}
-                            </p>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      {/* Time Between Purchase and Review */}
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Purchase-Review Time</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          {hasReviewDatesData() ? (
-                            <TimeBetweenPurchaseReview data={analysisResults.reviewDates} />
-                          ) : (
-                            <div className="text-center p-8 bg-gray-50 rounded-lg">
-                              <p className="text-gray-500">Data not available in your document</p>
-                            </div>
-                          )}
-                          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                            <h3 className="text-lg font-semibold mb-2">Purchase-Review Insights</h3>
-                            <p className="text-gray-700 leading-relaxed">
-                              {hasReviewDatesData()
-                                ? generatePurchaseReviewCommentary()
-                                : "Data not available in your document"}
-                            </p>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      {/* Review Clustering Graph */}
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Review Clustering</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <ReviewClusteringGraph reviewData={analysisResults.reviewSummary} />
-                        </CardContent>
-                      </Card>
-
-                      {/* Influential Reviews */}
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Influential Reviews</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <InfluentialReviews reviewData={analysisResults.reviewSummary} />
-                        </CardContent>
-                      </Card>
-                    </div>
-                  )}
+                    {/* K-means Review Clustering in Themes tab */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Review Clustering by Themes (K-means)</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ReviewClusteringGraph
+                          reviewData={analysisResults.reviewSummary || []}
+                          clusters={[
+                            { id: 0, x: 0.8, y: 0.3, z: 0.7, name: "Quality Positive" },
+                            { id: 1, x: 0.2, y: 0.7, z: 0.3, name: "Quality Negative" },
+                            { id: 2, x: 0.7, y: 0.3, z: 0.6, name: "Price Positive" },
+                            { id: 3, x: 0.3, y: 0.6, z: 0.4, name: "Price Negative" },
+                            { id: 4, x: 0.8, y: 0.4, z: 0.8, name: "Experience Positive" },
+                            { id: 5, x: 0.3, y: 0.6, z: 0.2, name: "Experience Negative" },
+                          ]}
+                        />
+                        <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                          <h3 className="text-lg font-semibold mb-2">Clustering Insights</h3>
+                          <p className="text-gray-700 leading-relaxed">
+                            This K-means clustering analysis groups reviews based on their content similarity, focusing
+                            on key themes like quality, price, and in-store experience. Each cluster represents reviews
+                            with similar characteristics, helping identify patterns in customer feedback.
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
                 </TabsContent>
 
                 {/* Marketing Tab */}
                 <TabsContent value="marketing">
-                  {analysisResults && (
-                    <div className="space-y-6">
-                      {/* Marketing Insights */}
-                      <Card className="mb-6">
-                        <CardHeader>
-                          <CardTitle>Marketing Insights</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <ProductPromotionArguments
-                            strengths={analysisResults.strengths}
-                            weaknesses={analysisResults.weaknesses}
-                            keywords={analysisResults.themes.map((theme: any) => ({
-                              text: theme.theme,
-                              value: theme.count,
-                            }))}
-                          />
-                          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                            <h3 className="text-lg font-semibold mb-2">Marketing Commentary</h3>
-                            <p className="text-gray-700 leading-relaxed">{generateMarketingCommentary()}</p>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      {/* Emotions Bar Chart (Marketing Context) */}
-                      <Card className="mb-6">
-                        <CardHeader>
-                          <CardTitle>Emotional Targeting</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <EmotionsBarChart
-                            data={analysisResults.emotions}
-                            reviewCount={analysisResults.reviewCount}
-                            explanation="Understanding the emotional responses of your customers allows you to craft marketing messages that resonate on a deeper level. Target these primary emotions in your advertising copy to create stronger connections with your audience."
-                          />
-                          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                            <h3 className="text-lg font-semibold mb-2">Emotional Marketing Strategy</h3>
-                            <p className="text-gray-700 leading-relaxed">
-                              The emotional analysis above reveals the predominant feelings expressed by your customers.
-                              Leveraging these emotions in your marketing creates more resonant messaging that connects
-                              on a deeper level. For each primary emotion, consider these targeted approaches:
-                              {analysisResults.emotions &&
-                                analysisResults.emotions.length > 0 &&
-                                analysisResults.emotions[0] && (
-                                  <span>
-                                    <br />
-                                    <br />
-                                    <strong>{analysisResults.emotions[0].emotion}:</strong> Create marketing that
-                                    emphasizes this emotional response, using language, imagery, and storytelling that
-                                    evokes similar feelings in potential customers. This alignment between your
-                                    marketing and customers' emotional experience creates authenticity and strengthens
-                                    brand connection.
-                                  </span>
-                                )}
-                              <br />
-                              <br />
-                              Emotional marketing bypasses rational decision-making processes and connects directly with
-                              the psychological drivers of purchasing behavior. By aligning your messaging with the
-                              emotions already associated with your product, you create more compelling and effective
-                              marketing campaigns.
-                            </p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  )}
+                  <div className="space-y-8">
+                    {/* Product Promotion Arguments */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>{t("analyze.results.cards.marketing.title")}</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ProductPromotionArguments
+                          strengths={analysisResults.strengths}
+                          weaknesses={analysisResults.weaknesses}
+                          keywords={analysisResults.themes.map((theme: any) => ({
+                            text: theme.theme,
+                            value: theme.count,
+                          }))}
+                        />
+                        <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                          <h3 className="text-lg font-semibold mb-2">
+                            {t("analyze.results.cards.marketing.insights")}
+                          </h3>
+                          <p className="text-gray-700 leading-relaxed">{generateMarketingCommentary()}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
                 </TabsContent>
 
-                {/* Advanced Analytics Tab */}
-                <TabsContent value="advanced">
-                  {analysisResults && (
-                    <div className="space-y-6">
-                      {/* Rating Box Plot */}
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Rating Distribution by Category</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <RatingBoxPlot reviewData={analysisResults.reviewSummary} />
-                        </CardContent>
-                      </Card>
+                {/* Customer Tab */}
+                <TabsContent value="customer">
+                  <div className="space-y-8">
+                    {/* Customer Satisfaction Flow */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Customer Satisfaction Flow</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <SatisfactionFlowChart
+                          data={{
+                            nodes: [
+                              { name: "Unhappy Customer" },
+                              { name: "Neutral Experience" },
+                              { name: "Positive Experience" },
+                              { name: "Negative Review" },
+                              { name: "Moderate Review" },
+                              { name: "Positive Review" },
+                              { name: "Lost Customer" },
+                              { name: "Repeat Customer" },
+                              { name: "Brand Advocate" },
+                            ],
+                            links: [
+                              {
+                                source: 0,
+                                target: 3,
+                                value: Math.round((analysisResults.sentiment?.negative || 0) * 0.3),
+                              },
+                              {
+                                source: 0,
+                                target: 4,
+                                value: Math.round((analysisResults.sentiment?.negative || 0) * 0.1),
+                              },
+                              {
+                                source: 1,
+                                target: 3,
+                                value: Math.round((analysisResults.sentiment?.neutral || 0) * 0.1),
+                              },
+                              {
+                                source: 1,
+                                target: 4,
+                                value: Math.round((analysisResults.sentiment?.neutral || 0) * 0.6),
+                              },
+                              {
+                                source: 1,
+                                target: 5,
+                                value: Math.round((analysisResults.sentiment?.neutral || 0) * 0.3),
+                              },
+                              {
+                                source: 2,
+                                target: 4,
+                                value: Math.round((analysisResults.sentiment?.positive || 0) * 0.1),
+                              },
+                              {
+                                source: 2,
+                                target: 5,
+                                value: Math.round((analysisResults.sentiment?.positive || 0) * 0.8),
+                              },
+                              {
+                                source: 3,
+                                target: 6,
+                                value: Math.round((analysisResults.sentiment?.negative || 0) * 0.35),
+                              },
+                              {
+                                source: 3,
+                                target: 7,
+                                value: Math.round((analysisResults.sentiment?.negative || 0) * 0.05),
+                              },
+                              {
+                                source: 4,
+                                target: 6,
+                                value: Math.round((analysisResults.sentiment?.neutral || 0) * 0.2),
+                              },
+                              {
+                                source: 4,
+                                target: 7,
+                                value: Math.round((analysisResults.sentiment?.neutral || 0) * 0.6),
+                              },
+                              {
+                                source: 4,
+                                target: 8,
+                                value: Math.round((analysisResults.sentiment?.neutral || 0) * 0.1),
+                              },
+                              {
+                                source: 5,
+                                target: 7,
+                                value: Math.round((analysisResults.sentiment?.positive || 0) * 0.3),
+                              },
+                              {
+                                source: 5,
+                                target: 8,
+                                value: Math.round((analysisResults.sentiment?.positive || 0) * 0.6),
+                              },
+                            ],
+                          }}
+                        />
+                      </CardContent>
+                    </Card>
 
-                      {/* Negative Review Prediction */}
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Negative Review Prediction</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <NegativeReviewPrediction reviewData={analysisResults.reviewSummary} />
-                        </CardContent>
-                      </Card>
+                    {/* Time Between Purchase and Review */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Time Between Purchase and Review</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <TimeBetweenPurchaseReview />
+                      </CardContent>
+                    </Card>
 
-                      {/* Review Clustering Graph */}
+                    {/* Temporal Heatmap */}
+                    {hasReviewDatesData() && (
                       <Card>
                         <CardHeader>
-                          <CardTitle>Review Clustering</CardTitle>
+                          <CardTitle>Review Activity Heatmap</CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <ReviewClusteringGraph reviewData={analysisResults.reviewSummary} />
+                          <TemporalHeatmap data={analysisResults.reviewDates} />
                         </CardContent>
                       </Card>
+                    )}
 
-                      {/* Influential Reviews */}
+                    {/* Review Summary Table */}
+                    {analysisResults.reviewSummary && analysisResults.reviewSummary.length > 0 && (
                       <Card>
                         <CardHeader>
-                          <CardTitle>Influential Reviews</CardTitle>
+                          <CardTitle>Review Summary</CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <InfluentialReviews reviewData={analysisResults.reviewSummary} />
+                          <ReviewSummaryTable reviews={analysisResults.reviewSummary} pageSize={10} />
                         </CardContent>
                       </Card>
-                    </div>
-                  )}
+                    )}
+
+                    {/* Opinion Trend Graph */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Opinion Trend</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <OpinionTrendGraph data={analysisResults.comprehensiveAnalysis?.trend || "stable"} />
+                      </CardContent>
+                    </Card>
+
+                    {/* Negative Review Prediction in Customer tab */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Customer Churn Risk Prediction</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <NegativeReviewPrediction reviewData={analysisResults.reviewSummary || []} />
+                        <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                          <h3 className="text-lg font-semibold mb-2">Churn Risk Analysis</h3>
+                          <p className="text-gray-700 leading-relaxed">
+                            This predictive model analyzes the probability of customers leaving negative reviews based
+                            on various factors including review patterns, sentiment trends, and customer behavior
+                            indicators. Use these insights to proactively address potential issues.
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Influential Reviews in Customer tab */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>High-Impact Customer Reviews</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <InfluentialReviews reviewData={analysisResults.reviewSummary || []} />
+                        <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
+                          <h3 className="text-lg font-semibold mb-2">Review Impact Analysis</h3>
+                          <p className="text-gray-700 leading-relaxed">
+                            These influential reviews have the highest potential impact on other customers' purchasing
+                            decisions. Monitor these closely and consider reaching out to these customers for further
+                            engagement or issue resolution.
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
                 </TabsContent>
               </Tabs>
-
-              <div className="flex justify-end mt-4">
-                <Button onClick={handleDownloadPDF} className="bg-white text-black hover:bg-white/90">
-                  Download PDF Report
-                </Button>
-              </div>
             </div>
           )}
         </div>
       </main>
-
-      <Footer />
-
-      {showUpgradeModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3 text-center">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">Upgrade Your Plan</h3>
-              <div className="mt-2">
-                <p className="text-sm text-gray-500">
-                  This feature is only available on paid plans. Please upgrade to access it.
-                </p>
-              </div>
-              <div className="items-center px-4 py-3">
-                <Button
-                  onClick={() => {
-                    setShowUpgradeModal(false)
-                    window.location.href = "https://buy.stripe.com/8wM5kpgmA7na9eU4gg"
-                  }}
-                  className="bg-white text-black hover:bg-white/90"
-                >
-                  Upgrade Now
-                </Button>
-                <Button
-                  onClick={() => setShowUpgradeModal(false)}
-                  variant="ghost"
-                  className="mt-2 text-gray-500 hover:bg-gray-100"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

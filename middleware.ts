@@ -22,7 +22,13 @@ export async function middleware(request: NextRequest) {
     // Redirect to login page if trying to access protected route without auth
     const redirectUrl = new URL("/login", request.url)
     redirectUrl.searchParams.set("redirect", request.nextUrl.pathname)
-    return NextResponse.redirect(redirectUrl)
+
+    // Add Cache-Control headers to prevent caching
+    const res = NextResponse.redirect(redirectUrl)
+    res.headers.set("Cache-Control", "no-cache, no-store, max-age=0, must-revalidate")
+    res.headers.set("Pragma", "no-cache")
+    res.headers.set("Expires", "0")
+    return res
   }
 
   // If user is authenticated and trying to access login/signup pages, redirect to analyze

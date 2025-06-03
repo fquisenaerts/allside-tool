@@ -1,72 +1,75 @@
 import Link from "next/link"
+import { useTranslation } from "@/app/hooks/useTranslation"
 
 export function Footer() {
+  const { t } = useTranslation()
+
   return (
     <footer className="py-16 bg-[#050314] text-white">
       <div className="max-w-7xl mx-auto px-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
           <div>
-            <h3 className="text-sm font-normal mb-4">Product</h3>
+            <h3 className="text-sm font-normal mb-4">{t("footer.product")}</h3>
             <ul className="space-y-3">
               <li>
                 <Link href="#" className="text-sm text-gray-400 hover:text-white">
-                  Features
+                  {t("footer.features")}
                 </Link>
               </li>
               <li>
                 <Link href="#" className="text-sm text-gray-400 hover:text-white">
-                  Pricing
+                  {t("footer.pricing")}
                 </Link>
               </li>
             </ul>
           </div>
           <div>
-            <h3 className="text-sm font-normal mb-4">Company</h3>
+            <h3 className="text-sm font-normal mb-4">{t("footer.company")}</h3>
             <ul className="space-y-3">
               <li>
                 <Link href="#" className="text-sm text-gray-400 hover:text-white">
-                  About Us
+                  {t("footer.aboutUs")}
                 </Link>
               </li>
               <li>
                 <Link href="#" className="text-sm text-gray-400 hover:text-white">
-                  Careers
+                  {t("footer.careers")}
                 </Link>
               </li>
             </ul>
           </div>
           <div>
-            <h3 className="text-sm font-normal mb-4">Resources</h3>
+            <h3 className="text-sm font-normal mb-4">{t("footer.resources")}</h3>
             <ul className="space-y-3">
               <li>
                 <Link href="#" className="text-sm text-gray-400 hover:text-white">
-                  Blog
+                  {t("footer.blog")}
                 </Link>
               </li>
               <li>
                 <Link href="#" className="text-sm text-gray-400 hover:text-white">
-                  Documentation
+                  {t("footer.documentation")}
                 </Link>
               </li>
             </ul>
           </div>
           <div>
-            <h3 className="text-sm font-normal mb-4">Legal</h3>
+            <h3 className="text-sm font-normal mb-4">{t("footer.legal")}</h3>
             <ul className="space-y-3">
               <li>
                 <Link href="#" className="text-sm text-gray-400 hover:text-white">
-                  Privacy Policy
+                  {t("footer.privacyPolicy")}
                 </Link>
               </li>
               <li>
                 <Link href="#" className="text-sm text-gray-400 hover:text-white">
-                  Terms of Service
+                  {t("footer.termsOfService")}
                 </Link>
               </li>
             </ul>
           </div>
         </div>
-        <div className="text-center text-sm text-gray-400">© 2023 Your Company Name. All rights reserved.</div>
+        <div className="text-center text-sm text-gray-400">{t("footer.copyright")}</div>
       </div>
     </footer>
   )

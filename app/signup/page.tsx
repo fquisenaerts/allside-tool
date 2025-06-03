@@ -14,8 +14,10 @@ import Link from "next/link"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useTranslation } from "@/app/hooks/useTranslation"
 
 export default function Signup() {
+  const { t } = useTranslation()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -37,7 +39,7 @@ export default function Signup() {
     setSuccess(null)
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match")
+      setError(t("auth.passwordsDoNotMatch"))
       setLoading(false)
       return
     }
@@ -50,25 +52,25 @@ export default function Signup() {
       })
 
       if (signupError) {
-        setError(`Error: ${signupError.message}`)
+        setError(`${t("auth.error")}: ${signupError.message}`)
         setLoading(false)
         return
       }
 
       if (!data.user) {
-        setError("Failed to create user")
+        setError(t("auth.failedCreateUser"))
         setLoading(false)
         return
       }
 
-      setSuccess("Account created successfully! Redirecting...")
+      setSuccess(t("auth.accountCreated"))
 
       // Redirect to confirmation page
       setTimeout(() => {
         router.push(`/signup/confirmation?email=${encodeURIComponent(email)}`)
       }, 2000)
     } catch (err: any) {
-      setError(`Unexpected error: ${err.message}`)
+      setError(`${t("auth.unexpectedError")}: ${err.message}`)
       setLoading(false)
     }
   }
@@ -79,20 +81,20 @@ export default function Signup() {
       <div className="flex-grow flex items-center justify-center">
         <Card className="w-[450px] mt-10 mb-10 bg-[#050314] border-gray-800">
           <CardHeader>
-            <CardTitle className="text-white">Create an Account</CardTitle>
-            <CardDescription className="text-gray-400">Sign up to get started with our platform</CardDescription>
+            <CardTitle className="text-white">{t("auth.createAccount")}</CardTitle>
+            <CardDescription className="text-gray-400">{t("auth.signUpToStart")}</CardDescription>
           </CardHeader>
           <CardContent>
             {error && (
               <Alert variant="destructive" className="mb-4">
-                <AlertTitle>Error</AlertTitle>
+                <AlertTitle>{t("auth.errorTitle")}</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
 
             {success && (
               <Alert className="mb-4 bg-green-900 border-green-800">
-                <AlertTitle className="text-green-100">Success</AlertTitle>
+                <AlertTitle className="text-green-100">{t("auth.successTitle")}</AlertTitle>
                 <AlertDescription className="text-green-200">{success}</AlertDescription>
               </Alert>
             )}
@@ -100,7 +102,7 @@ export default function Signup() {
             <form onSubmit={handleSignup} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="firstName">First Name</Label>
+                  <Label htmlFor="firstName">{t("auth.firstName")}</Label>
                   <Input
                     id="firstName"
                     type="text"
@@ -111,7 +113,7 @@ export default function Signup() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lastName">Last Name</Label>
+                  <Label htmlFor="lastName">{t("auth.lastName")}</Label>
                   <Input
                     id="lastName"
                     type="text"
@@ -124,7 +126,7 @@ export default function Signup() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t("auth.email")}</Label>
                 <Input
                   id="email"
                   type="email"
@@ -136,7 +138,7 @@ export default function Signup() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="company">Company</Label>
+                <Label htmlFor="company">{t("auth.company")}</Label>
                 <Input
                   id="company"
                   type="text"
@@ -147,21 +149,21 @@ export default function Signup() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="plan">Select Plan</Label>
+                <Label htmlFor="plan">{t("auth.selectPlan")}</Label>
                 <Select value={plan} onValueChange={setPlan}>
                   <SelectTrigger className="bg-[#0f0a2e] border-gray-700 text-white">
-                    <SelectValue placeholder="Select a plan" />
+                    <SelectValue placeholder={t("auth.selectAPlan")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="free_trial">Free Trial (14 days)</SelectItem>
-                    <SelectItem value="standard">Standard (€16/month)</SelectItem>
-                    <SelectItem value="custom">Custom Plan (Contact us)</SelectItem>
+                    <SelectItem value="free_trial">{t("auth.freeTrial")}</SelectItem>
+                    <SelectItem value="standard">{t("auth.standardPlan")}</SelectItem>
+                    <SelectItem value="custom">{t("auth.customPlan")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">{t("auth.password")}</Label>
                 <Input
                   id="password"
                   type="password"
@@ -173,7 +175,7 @@ export default function Signup() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Label htmlFor="confirmPassword">{t("auth.confirmPassword")}</Label>
                 <Input
                   id="confirmPassword"
                   type="password"
@@ -185,13 +187,13 @@ export default function Signup() {
               </div>
 
               <Button type="submit" className="w-full bg-white text-black hover:bg-gray-100" disabled={loading}>
-                {loading ? "Creating Account..." : "Create Account"}
+                {loading ? t("auth.creatingAccount") : t("auth.createAccount")}
               </Button>
             </form>
           </CardContent>
           <CardFooter className="flex justify-center">
             <Link href="/login" className="text-sm text-gray-400 hover:text-white">
-              Already have an account? Sign in
+              {t("auth.alreadyHaveAccount")}
             </Link>
           </CardFooter>
         </Card>

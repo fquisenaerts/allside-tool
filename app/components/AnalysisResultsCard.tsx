@@ -1,133 +1,138 @@
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Globe, ThumbsUp, TrendingUp } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from "recharts"
 
-interface AnalysisResultsCardProps {
-  results: any
-  index: number
+const SENTIMENT_COLORS = {
+  Positive: "#22c55e",
+  Negative: "#ef4444",
+  Neutral: "#3b82f6",
 }
 
-export function AnalysisResultsCard({ results, index }: AnalysisResultsCardProps) {
-  // Extract data from results
-  const totalReviews = results.reviewCount || 0
-  const language = results.language || "English"
-  const positivePercentage = Math.round(results.sentiment?.positive || 0)
-  const overallSentiment = positivePercentage >= 70 ? "positive" : positivePercentage >= 40 ? "neutral" : "negative"
+const TONE_COLORS = {
+  Positive: "#22c55e",
+  Neutral: "#3b82f6",
+  Negative: "#ef4444",
+}
 
-  // Get themes (filter out generic ones)
-  const keyThemes =
-    results.themes
-      ?.filter((theme: any) => theme.theme && theme.theme !== "general feedback" && theme.theme !== "Unknown")
-      .map((theme: any) => theme.theme) || []
+export function AnalysisResultsCard({ results, index }: { results: any; index: number }) {
+  if (!results) return null
 
-  // Get marketing insights
-  const adCopyTargeting = results.comprehensiveAnalysis?.marketingInsights || []
+  // Prepare sentiment data with proper colors
+  const sentimentData = [
+    { name: "Positive", value: results.sentiment?.positive || 0, color: SENTIMENT_COLORS.Positive },
+    { name: "Negative", value: results.sentiment?.negative || 0, color: SENTIMENT_COLORS.Negative },
+    { name: "Neutral", value: results.sentiment?.neutral || 0, color: SENTIMENT_COLORS.Neutral },
+  ]
 
-  // Get improvement suggestions
-  const improvementSuggestions = results.comprehensiveAnalysis?.recommendations || []
-
-  // Determine opinion trend
-  const opinionTrend = results.comprehensiveAnalysis?.trend || "Stable"
+  // Prepare tone data with proper formatting (2 decimal places)
+  const toneData = [
+    {
+      name: "Positive",
+      value: Number((results.sentiment?.positive || 0).toFixed(2)),
+      color: TONE_COLORS.Positive,
+    },
+    {
+      name: "Neutral",
+      value: Number((results.sentiment?.neutral || 0).toFixed(2)),
+      color: TONE_COLORS.Neutral,
+    },
+    {
+      name: "Negative",
+      value: Number((results.sentiment?.negative || 0).toFixed(2)),
+      color: TONE_COLORS.Negative,
+    },
+  ]
 
   return (
-    <Card className="w-full mb-8">
-      <CardContent className="pt-6">
-        <div className="space-y-6">
-          {/* Header */}
-          <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-bold">Analysis Results {index + 1}</h2>
-            <ThumbsUp
-              className={`h-6 w-6 ${overallSentiment === "positive" ? "text-green-500" : overallSentiment === "neutral" ? "text-yellow-500" : "text-red-500"}`}
-            />
-          </div>
-
-          {/* Language and review count */}
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-gray-500">
-              <Globe className="h-5 w-5" />
-              <span>Original language: {language}</span>
-            </div>
-            <p className="text-gray-500">Based on {totalReviews} reviews</p>
-          </div>
-
-          {/* Overall Sentiment */}
-          <div className="space-y-2">
-            <h3 className="text-xl font-semibold">Overall Sentiment</h3>
-            <div className="flex items-center gap-3">
-              <Badge
-                className={`text-white px-4 py-1 text-sm rounded-full ${
-                  overallSentiment === "positive"
-                    ? "bg-green-600"
-                    : overallSentiment === "neutral"
-                      ? "bg-yellow-500"
-                      : "bg-red-600"
-                }`}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      {/* Sentiment Distribution Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Sentiment Distribution</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={sentimentData}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                outerRadius={100}
+                fill="#8884d8"
+                dataKey="value"
+                label={({ name, value }) => `${name}: ${value.toFixed(1)}%`}
               >
-                {overallSentiment}
-              </Badge>
-              <span className="text-gray-700">Score: {positivePercentage}.0%</span>
-            </div>
-          </div>
+                {sentimentData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    const data = payload[0].payload
+                    return (
+                      <div className="bg-white p-2 border rounded shadow">
+                        <p style={{ color: data.color }}>{`${data.name}: ${data.value.toFixed(1)}%`}</p>
+                      </div>
+                    )
+                  }
+                  return null
+                }}
+              />
+              <Legend
+                content={({ payload }) => (
+                  <div className="flex justify-center gap-4 mt-4">
+                    {payload?.map((entry, index) => (
+                      <div key={`item-${index}`} className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }} />
+                        <span className="text-sm">{entry.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
 
-          {/* Key Themes */}
-          <div className="space-y-2">
-            <h3 className="text-xl font-semibold">Key Themes</h3>
-            <div className="flex flex-wrap gap-2">
-              {keyThemes.length > 0 ? (
-                keyThemes.map((theme: string, i: number) => (
-                  <Badge key={i} variant="outline" className="bg-gray-100 text-gray-800 hover:bg-gray-100">
-                    {theme}
-                  </Badge>
-                ))
-              ) : (
-                <p className="text-gray-500">No specific themes identified.</p>
-              )}
-            </div>
-          </div>
-
-          {/* Ad Copy and Targeting Suggestions */}
-          <div className="space-y-3">
-            <h3 className="text-xl font-semibold">Ad Copy and Targeting Suggestions</h3>
-            <ul className="list-disc pl-6 space-y-2">
-              {adCopyTargeting.length > 0 ? (
-                <>
-                  <li>
-                    <span className="font-semibold">Copy:</span> {adCopyTargeting[0]}
-                  </li>
-                  {adCopyTargeting[1] && (
-                    <li>
-                      <span className="font-semibold">Targeting:</span> {adCopyTargeting[1]}
-                    </li>
-                  )}
-                </>
-              ) : (
-                <li>No specific marketing insights available.</li>
-              )}
-            </ul>
-          </div>
-
-          {/* Product Improvement Suggestions */}
-          <div className="space-y-3">
-            <h3 className="text-xl font-semibold">Product Improvement Suggestions</h3>
-            <ul className="list-disc pl-6 space-y-2">
-              {improvementSuggestions.length > 0 ? (
-                improvementSuggestions.map((suggestion: string, i: number) => <li key={i}>{suggestion}</li>)
-              ) : (
-                <li>No specific improvement suggestions available.</li>
-              )}
-            </ul>
-          </div>
-
-          {/* Opinion Trend */}
-          <div className="space-y-2">
-            <h3 className="text-xl font-semibold">Opinion Trend</h3>
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-green-500" />
-              <span className="text-green-500">{opinionTrend}</span>
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+      {/* Tone Distribution Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Tone Distribution</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={toneData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis domain={[0, 100]} tickFormatter={(value) => `${value.toFixed(2)}%`} />
+              <Tooltip
+                formatter={(value: any) => [`${Number(value).toFixed(2)}%`, "Percentage"]}
+                labelStyle={{ color: "#000" }}
+              />
+              <Legend />
+              <Bar dataKey="value" name="Tone Percentage">
+                {toneData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+    </div>
   )
 }

@@ -3,6 +3,7 @@
 import { createAdminClient, supabase } from "@/lib/supabase"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
+import { cookies } from "next/headers"
 
 // Type for signup data
 type SignupData = {
@@ -100,9 +101,19 @@ export async function login(data: LoginData) {
 
 // Logout function
 export async function logout() {
+  // Clear the session cookies
+  cookies().delete("supabase-auth-token")
+  cookies().delete("sb-refresh-token")
+  cookies().delete("sb-access-token")
+
+  // Sign out from Supabase
   await supabase.auth.signOut()
+
+  // Revalidate paths to clear cache
   revalidatePath("/")
-  redirect("/login")
+
+  // Redirect to homepage instead of login
+  redirect("/")
 }
 
 // Set user on free trial

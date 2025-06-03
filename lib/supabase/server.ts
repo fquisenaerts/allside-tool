@@ -1,8 +1,8 @@
-import { createClient } from "@supabase/supabase-js"
+import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 import type { cookies } from "next/headers"
 
-export function createSupabaseServerClient(cookieStore: ReturnType<typeof cookies>) {
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+export function createClient(cookieStore: ReturnType<typeof cookies>) {
+  return createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,

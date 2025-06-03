@@ -24,6 +24,12 @@ export function ToneBarChart({
     return <div>No tone data available</div>
   }
 
+  // Convert values to percentage scale if they're in decimal format
+  const processedData = chartData.map((item) => ({
+    ...item,
+    value: item.value <= 1 ? item.value * 100 : item.value,
+  }))
+
   // Generate a more comprehensive explanation
   const generateDetailedExplanation = () => {
     if (explanation) return explanation
@@ -112,14 +118,14 @@ export function ToneBarChart({
     <div className="space-y-6">
       <div className="space-y-8">
         <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+          <BarChart data={processedData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="name" />
-            <YAxis domain={[0, 0.8]} />
+            <YAxis domain={[0, 100]} />
             <Tooltip />
             <Legend />
             <Bar dataKey="value" name="Tone">
-              {chartData.map((entry, index) => (
+              {processedData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={COLORS[entry.name] || COLORS.Neutral} />
               ))}
             </Bar>

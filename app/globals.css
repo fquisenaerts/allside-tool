@@ -60,6 +60,25 @@ body {
   }
 }
 
+.floating-logo {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* Show the default cursor */
+body {
+  cursor: default;
+}
+
+/* Show the pointer cursor for interactive elements */
+a,
+button,
+input,
+textarea,
+select,
+[role="button"] {
+  cursor: pointer;
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;

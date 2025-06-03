@@ -4,7 +4,18 @@ import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { CheckCircle, AlertCircle, XCircle, ChevronLeft, ChevronRight } from "lucide-react"
+import {
+  CheckCircle,
+  AlertCircle,
+  XCircle,
+  ChevronLeft,
+  ChevronRight,
+  MessageSquare,
+  Copy,
+  Check,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react"
 
 interface Review {
   text: string
@@ -18,13 +29,16 @@ interface Review {
 
 interface ReviewSummaryTableProps {
   reviews?: Review[]
+  pageSize?: number
 }
 
-export function ReviewSummaryTable({ reviews = [] }: ReviewSummaryTableProps) {
+export function ReviewSummaryTable({ reviews = [], pageSize = 10 }: ReviewSummaryTableProps) {
   const [currentPage, setCurrentPage] = useState(1)
-  const pageSize = 10
-  const totalPages = Math.ceil(reviews.length / pageSize)
+  const [generatedResponses, setGeneratedResponses] = useState<{ [key: number]: string }>({})
+  const [loadingResponses, setLoadingResponses] = useState<{ [key: number]: boolean }>({})
+  const [copiedResponses, setCopiedResponses] = useState<{ [key: number]: boolean }>({})
 
+  const totalPages = Math.ceil(reviews.length / pageSize)
   const startIndex = (currentPage - 1) * pageSize
   const endIndex = Math.min(startIndex + pageSize, reviews.length)
   const currentReviews = reviews.slice(startIndex, endIndex)
@@ -38,6 +52,20 @@ export function ReviewSummaryTable({ reviews = [] }: ReviewSummaryTableProps) {
   const goToPreviousPage = () => {
     if (currentPage > 1) {
       setCurrentPage(currentPage - 1)
+    }
+  }
+
+  const goToFirstPage = () => {
+    setCurrentPage(1)
+  }
+
+  const goToLastPage = () => {
+    setCurrentPage(totalPages)
+  }
+
+  const goToPage = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page)
     }
   }
 
@@ -64,7 +92,6 @@ export function ReviewSummaryTable({ reviews = [] }: ReviewSummaryTableProps) {
     const strengths = review.strengths || []
     const weaknesses = review.weaknesses || []
     const keywords = review.keywords || []
-    const score = review.score || 0
 
     // Create different response templates based on sentiment and review content
     const positiveTemplates = [
@@ -118,9 +145,79 @@ export function ReviewSummaryTable({ reviews = [] }: ReviewSummaryTableProps) {
     return templates[templateIndex]
   }
 
+  const handleGenerateResponse = async (reviewIndex: number) => {
+    const globalIndex = startIndex + reviewIndex
+    setLoadingResponses((prev) => ({ ...prev, [globalIndex]: true }))
+
+    // Simulate API call delay
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+
+    const review = currentReviews[reviewIndex]
+    const response = generateUniqueResponse(review, globalIndex)
+
+    setGeneratedResponses((prev) => ({ ...prev, [globalIndex]: response }))
+    setLoadingResponses((prev) => ({ ...prev, [globalIndex]: false }))
+  }
+
+  const handleCopyResponse = async (reviewIndex: number) => {
+    const globalIndex = startIndex + reviewIndex
+    const response = generatedResponses[globalIndex]
+
+    if (response) {
+      try {
+        await navigator.clipboard.writeText(response)
+        setCopiedResponses((prev) => ({ ...prev, [globalIndex]: true }))
+
+        // Reset copied state after 2 seconds
+        setTimeout(() => {
+          setCopiedResponses((prev) => ({ ...prev, [globalIndex]: false }))
+        }, 2000)
+      } catch (err) {
+        console.error("Failed to copy text: ", err)
+      }
+    }
+  }
+
+  // Generate page numbers for pagination
+  const getPageNumbers = () => {
+    const pages = []
+    const maxVisiblePages = 5
+
+    if (totalPages <= maxVisiblePages) {
+      // Show all pages if total is small
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i)
+      }
+    } else {
+      // Show smart pagination
+      const start = Math.max(1, currentPage - 2)
+      const end = Math.min(totalPages, currentPage + 2)
+
+      if (start > 1) {
+        pages.push(1)
+        if (start > 2) pages.push("...")
+      }
+
+      for (let i = start; i <= end; i++) {
+        pages.push(i)
+      }
+
+      if (end < totalPages) {
+        if (end < totalPages - 1) pages.push("...")
+        pages.push(totalPages)
+      }
+    }
+
+    return pages
+  }
+
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-4">Summary of Reviews</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-2xl font-bold">Summary of Reviews</h2>
+        <div className="text-sm text-gray-500">Total: {reviews.length} reviews</div>
+      </div>
+
       <Table>
         <TableHeader>
           <TableRow>
@@ -131,59 +228,158 @@ export function ReviewSummaryTable({ reviews = [] }: ReviewSummaryTableProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {currentReviews.map((review, index) => (
-            <TableRow key={index}>
-              <TableCell className="font-medium">
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 mt-1">{getSentimentIcon(review.sentiment || "neutral")}</div>
-                  <div className="flex-grow">{review.text}</div>
-                </div>
-              </TableCell>
-              <TableCell>
-                {review.strengths?.map((strength, i) => (
-                  <Badge key={i} variant="outline" className="mr-1 mb-1">
-                    {strength}
-                  </Badge>
-                )) || "No strengths identified"}
-              </TableCell>
-              <TableCell>
-                {review.keywords?.length > 0 ? (
-                  review.keywords.map((keyword, i) => (
-                    <Badge key={i} variant="secondary" className="mr-1 mb-1">
-                      {keyword}
+          {currentReviews.map((review, index) => {
+            const globalIndex = startIndex + index
+            const hasGeneratedResponse = generatedResponses[globalIndex]
+            const isLoading = loadingResponses[globalIndex]
+            const isCopied = copiedResponses[globalIndex]
+
+            return (
+              <TableRow key={globalIndex}>
+                <TableCell className="font-medium">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 mt-1">{getSentimentIcon(review.sentiment || "neutral")}</div>
+                    <div className="flex-grow">
+                      <div className="text-sm text-gray-500 mb-1">Review #{globalIndex + 1}</div>
+                      {review.text}
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  {review.strengths?.map((strength, i) => (
+                    <Badge key={i} variant="outline" className="mr-1 mb-1">
+                      {strength}
                     </Badge>
-                  ))
-                ) : (
-                  <span className="text-gray-400">No keywords</span>
-                )}
-              </TableCell>
-              <TableCell>{generateUniqueResponse(review, startIndex + index)}</TableCell>
-            </TableRow>
-          ))}
+                  )) || "No strengths identified"}
+                </TableCell>
+                <TableCell>
+                  {review.keywords?.length > 0 ? (
+                    review.keywords.map((keyword, i) => (
+                      <Badge key={i} variant="secondary" className="mr-1 mb-1">
+                        {keyword}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-gray-400">No keywords</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {!hasGeneratedResponse ? (
+                    <Button
+                      onClick={() => handleGenerateResponse(index)}
+                      disabled={isLoading}
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                    >
+                      {isLoading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <MessageSquare className="h-4 w-4 mr-2" />
+                          Generate Response
+                        </>
+                      )}
+                    </Button>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="text-sm bg-gray-50 p-3 rounded-md border">{hasGeneratedResponse}</div>
+                      <Button onClick={() => handleCopyResponse(index)} variant="outline" size="sm" className="w-full">
+                        {isCopied ? (
+                          <>
+                            <Check className="h-4 w-4 mr-2 text-green-600" />
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-4 w-4 mr-2" />
+                            Copy Response
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </TableCell>
+              </TableRow>
+            )
+          })}
         </TableBody>
       </Table>
 
-      {/* Pagination controls */}
+      {/* Enhanced Pagination controls */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4">
+        <div className="flex items-center justify-between mt-6">
           <div className="text-sm text-gray-500">
             Showing {startIndex + 1}-{endIndex} of {reviews.length} reviews
           </div>
-          <div className="flex space-x-2">
-            <Button variant="outline" size="sm" onClick={goToPreviousPage} disabled={currentPage === 1}>
-              <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+
+          <div className="flex items-center space-x-2">
+            {/* First page button */}
+            <Button variant="outline" size="sm" onClick={goToFirstPage} disabled={currentPage === 1} className="px-2">
+              <ChevronsLeft className="h-4 w-4" />
             </Button>
-            <div className="flex items-center px-3">
-              <span className="text-sm font-medium">
-                Page {currentPage} of {totalPages}
-              </span>
+
+            {/* Previous page button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={goToPreviousPage}
+              disabled={currentPage === 1}
+              className="px-2"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+
+            {/* Page numbers */}
+            <div className="flex items-center space-x-1">
+              {getPageNumbers().map((page, index) => (
+                <div key={index}>
+                  {page === "..." ? (
+                    <span className="px-2 py-1 text-gray-400">...</span>
+                  ) : (
+                    <Button
+                      variant={currentPage === page ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => goToPage(page as number)}
+                      className="px-3 py-1 min-w-[32px]"
+                    >
+                      {page}
+                    </Button>
+                  )}
+                </div>
+              ))}
             </div>
-            <Button variant="outline" size="sm" onClick={goToNextPage} disabled={currentPage === totalPages}>
-              Next <ChevronRight className="h-4 w-4 ml-1" />
+
+            {/* Next page button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={goToNextPage}
+              disabled={currentPage === totalPages}
+              className="px-2"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+
+            {/* Last page button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={goToLastPage}
+              disabled={currentPage === totalPages}
+              className="px-2"
+            >
+              <ChevronsRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
       )}
+
+      {/* Page size info */}
+      <div className="text-xs text-gray-400 mt-2 text-center">Showing {pageSize} reviews per page</div>
     </div>
   )
 }
