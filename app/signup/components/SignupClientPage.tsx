@@ -1,0 +1,279 @@
+"use client"
+
+import type React from "react"
+
+import { useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { supabase } from "@/lib/supabase"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { Header } from "../../components/Header"
+import { Footer } from "../../components/Footer"
+import Link from "next/link"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useTranslation } from "@/app/hooks/useTranslation"
+import { Separator } from "@/components/ui/separator"
+import { ChromeIcon } from "lucide-react"
+import { getLocalizedUrl } from "@/lib/urlMapping"
+import { useLanguage } from "@/app/contexts/LanguageContext"
+
+export default function SignupClientPage() {
+  const { t } = useTranslation()
+  const { language } = useLanguage()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
+  const [company, setCompany] = useState("")
+  const [phone, setPhone] = useState("") // New required field
+  const [plan, setPlan] = useState("free_trial")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirect = searchParams.get("redirect")
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+    setSuccess(null)
+
+    if (password !== confirmPassword) {
+      setError(t("auth.passwordsDoNotMatch"))
+      setLoading(false)
+      return
+    }
+
+    try {
+      const { data, error: signupError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+            phone: phone,
+            company: company || null,
+          },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      })
+
+      if (signupError) {
+        setError(`${t("auth.error")}: ${signupError.message}`)
+        setLoading(false)
+        return
+      }
+
+      if (!data.user) {
+        setError(t("auth.failedCreateUser"))
+        setLoading(false)
+        return
+      }
+
+      setSuccess(t("auth.accountCreated"))
+
+      setTimeout(() => {
+        router.push(`/signup/confirmation?email=${encodeURIComponent(email)}`)
+      }, 2000)
+    } catch (err: any) {
+      setError(`${t("auth.unexpectedError")}: ${err.message}`)
+      setLoading(false)
+    }
+  }
+
+  const handleGoogleSignUp = async () => {
+    setLoading(true)
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    })
+    if (error) {
+      alert(error.message)
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-[#050314] text-white flex flex-col">
+      <Header />
+      <div className="flex-grow flex items-center justify-center">
+        <Card className="w-[450px] mt-10 mb-10 bg-[#050314] border-gray-800">
+          <CardHeader>
+            <CardTitle className="text-white">{t("auth.createAccount")}</CardTitle>
+            <CardDescription className="text-gray-400">{t("auth.signUpToStart")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertTitle>{t("auth.errorTitle")}</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            {success && (
+              <Alert className="mb-4 bg-green-900 border-green-800">
+                <AlertTitle className="text-green-100">{t("auth.successTitle")}</AlertTitle>
+                <AlertDescription className="text-green-200">{success}</AlertDescription>
+              </Alert>
+            )}
+
+            <Button
+              variant="outline"
+              className="w-full flex items-center justify-center gap-2 bg-gray-700 text-white border-gray-600 hover:bg-gray-600 mb-4"
+              onClick={handleGoogleSignUp}
+              disabled={loading}
+            >
+              <ChromeIcon className="h-4 w-4" />
+              {t("auth.continueWithGoogle")}
+            </Button>
+
+            <div className="relative my-6">
+              <Separator className="absolute inset-0 h-px my-auto bg-gray-600" />
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-[#050314] px-2 text-gray-400">{t("auth.orContinueWithEmail")}</span>
+              </div>
+            </div>
+
+            <form onSubmit={handleSignup} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName" className="text-white">
+                    {t("auth.firstName")}
+                  </Label>
+                  <Input
+                    id="firstName"
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    required
+                    className="bg-[#0f0a2e] border-gray-700 text-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName" className="text-white">
+                    {t("auth.lastName")}
+                  </Label>
+                  <Input
+                    id="lastName"
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    required
+                    className="bg-[#0f0a2e] border-gray-700 text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-white">
+                  {t("auth.email")}
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="bg-[#0f0a2e] border-gray-700 text-white"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="phone" className="text-white">
+                  {t("auth.phoneNumber")}
+                </Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  required
+                  className="bg-[#0f0a2e] border-gray-700 text-white"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="company" className="text-white">
+                  {t("auth.company")} ({t("auth.optional")})
+                </Label>
+                <Input
+                  id="company"
+                  type="text"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  className="bg-[#0f0a2e] border-gray-700 text-white"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="plan" className="text-white">
+                  {t("auth.selectPlan")}
+                </Label>
+                <Select value={plan} onValueChange={setPlan}>
+                  <SelectTrigger className="bg-[#0f0a2e] border-gray-700 text-white">
+                    <SelectValue placeholder={t("auth.selectAPlan")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="free_trial">{t("auth.freeTrial")}</SelectItem>
+                    <SelectItem value="standard">{t("auth.standardPlan")}</SelectItem>
+                    <SelectItem value="custom">{t("auth.customPlan")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-white">
+                  {t("auth.password")}
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="bg-[#0f0a2e] border-gray-700 text-white"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword" className="text-white">
+                  {t("auth.confirmPassword")}
+                </Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  className="bg-[#0f0a2e] border-gray-700 text-white"
+                />
+              </div>
+
+              <Button type="submit" className="w-full bg-white text-black hover:bg-gray-100" disabled={loading}>
+                {loading ? t("auth.creatingAccount") : t("auth.createAccount")}
+              </Button>
+            </form>
+          </CardContent>
+          <CardFooter className="flex flex-col justify-center gap-4">
+            <Link href={getLocalizedUrl("/login", language)} className="text-sm text-gray-400 hover:text-white">
+              {t("auth.alreadyHaveAccount")}
+            </Link>
+            <Link href={getLocalizedUrl("/book-a-demo", language)} passHref>
+              <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">{t("auth.scheduleADemo")}</Button>
+            </Link>
+          </CardFooter>
+        </Card>
+      </div>
+      <Footer />
+    </div>
+  )
+}
