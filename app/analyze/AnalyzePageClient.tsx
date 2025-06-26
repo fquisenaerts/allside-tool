@@ -19,6 +19,8 @@ import { ComprehensiveAnalysisDisplay } from "../components/ComprehensiveAnalysi
 import Image from "next/image"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
+import { cn } from "@/lib/utils"
+import { Checkbox } from "@/components/ui/checkbox" // Import Checkbox
 
 export default function AnalyzePageClient() {
   const { t } = useTranslation()
@@ -60,11 +62,17 @@ export default function AnalyzePageClient() {
   const [isResetting, setIsResetting] = useState(false)
   const [isUnlimited, setIsUnlimited] = useState(false)
   const [monthlyLimit, setMonthlyLimit] = useState(200)
+  const [isAnalyzeAllReviews, setIsAnalyzeAllReviews] = useState(false) // New state for "Analyze all reviews" checkbox
 
   const searchParams = useSearchParams()
   const router = useRouter()
 
   const hasLoadedUsageRef = useRef(false)
+  const [isClient, setIsClient] = useState(false) // New state for client-side rendering
+
+  useEffect(() => {
+    setIsClient(true) // Set to true once component mounts on client
+  }, [])
 
   // Load review usage from database
   const fetchReviewUsage = async (userId: string) => {
@@ -83,12 +91,27 @@ export default function AnalyzePageClient() {
 
       // Check if the response is OK before trying to parse it as JSON
       if (!response.ok) {
-        console.error("❌ Main Page: Error fetching review usage. Status:", response.status)
+        const errorText = await response.text() // Read response as text for debugging
+        console.error("❌ Main Page: Error fetching review usage. Status:", response.status, "Response:", errorText)
         setReviewsAnalyzedThisMonth(0)
         return
       }
 
-      const data = await response.json()
+      let data
+      try {
+        data = await response.json()
+      } catch (jsonError: any) {
+        const errorText = await response.text() // Read response again if json() failed
+        console.error(
+          "❌ Main Page: JSON parsing error for review usage. Raw response:",
+          errorText,
+          "Error:",
+          jsonError,
+        )
+        setError("Failed to parse review usage data. Please try again.")
+        setReviewsAnalyzedThisMonth(0)
+        return
+      }
 
       if (!data.success) {
         console.error("❌ Main Page: Error fetching review usage:", data.error)
@@ -308,18 +331,19 @@ export default function AnalyzePageClient() {
 
       for (const url of urls) {
         let input: any = {}
+        const reviewsToFetch = isAnalyzeAllReviews && hasAccess("unlimited_reviews") ? 10000 : reviewCount // Use a very high number for "all" if unlimited access, otherwise use reviewCount
         if (type === "Google My Business") {
-          input = { type: "gmb", content: url, reviewCount: reviewCount }
+          input = { type: "gmb", content: url, reviewCount: reviewsToFetch }
         } else if (type === "TripAdvisor") {
-          input = { type: "tripadvisor", content: url, reviewCount: reviewCount }
+          input = { type: "tripadvisor", content: url, reviewCount: reviewsToFetch }
         } else if (type === "Booking.com") {
-          input = { type: "booking", content: url, reviewCount: reviewCount }
+          input = { type: "booking", content: url, reviewCount: reviewsToFetch }
         } else if (type === "Trustpilot") {
-          input = { type: "trustpilot", companyDomain: url, count: reviewCount }
+          input = { type: "trustpilot", companyDomain: url, count: reviewsToFetch }
         } else if (type === "Airbnb") {
-          input = { type: "airbnb", content: url, reviewCount: reviewCount }
+          input = { type: "airbnb", content: url, reviewCount: reviewsToFetch }
         } else if (type === "URL Comparison") {
-          input = { type: "url", content: url, reviewCount: reviewCount }
+          input = { type: "url", content: url, reviewCount: reviewsToFetch }
         }
 
         try {
@@ -529,6 +553,9 @@ export default function AnalyzePageClient() {
       let analyzedUrl = null
       let type = null
 
+      // Determine the actual review count to use
+      const reviewsToFetch = isAnalyzeAllReviews && hasAccess("unlimited_reviews") ? 10000 : reviewCount // Use a very high number for "all" if unlimited access, otherwise use reviewCount
+
       if (url1 && url2) {
         // Handle comparison of two URLs
         setIsBulkAnalysis(true)
@@ -537,46 +564,46 @@ export default function AnalyzePageClient() {
         await handleBulkAnalyze([url1, url2], "URL Comparison")
         return // Exit after handling bulk analysis
       } else if (url1) {
-        input = { type: "url", content: url1, reviewCount: hasAccess("unlimited_reviews") ? 1000 : reviewCount }
+        input = { type: "url", content: url1, reviewCount: reviewsToFetch }
         analyzedUrl = url1
         type = "URL"
       } else if (gmbUrl) {
-        input = { type: "gmb", content: gmbUrl, reviewCount: hasAccess("unlimited_reviews") ? 1000 : reviewCount }
+        input = { type: "gmb", content: gmbUrl, reviewCount: reviewsToFetch }
         analyzedUrl = gmbUrl
         type = "Google My Business"
-        setLoadingProgress(`Fetching ${reviewCount} reviews from Google My Business...`)
+        setLoadingProgress(`Fetching ${reviewsToFetch} reviews from Google My Business...`)
       } else if (tripAdvisorUrl) {
         input = {
           type: "tripadvisor",
           content: tripAdvisorUrl,
-          reviewCount: hasAccess("unlimited_reviews") ? 1000 : reviewCount,
+          reviewCount: reviewsToFetch,
         }
         analyzedUrl = tripAdvisorUrl
         type = "TripAdvisor"
-        setLoadingProgress(`Fetching ${reviewCount} reviews from TripAdvisor...`)
+        setLoadingProgress(`Fetching ${reviewsToFetch} reviews from TripAdvisor...`)
       } else if (bookingUrl) {
         input = {
           type: "booking",
           content: bookingUrl,
-          reviewCount: hasAccess("unlimited_reviews") ? 1000 : reviewCount,
+          reviewCount: reviewsToFetch,
         }
         analyzedUrl = bookingUrl
         type = "Booking.com"
-        setLoadingProgress(`Fetching ${reviewCount} reviews from Booking.com...`)
+        setLoadingProgress(`Fetching ${reviewsToFetch} reviews from Booking.com...`)
       } else if (trustpilotCompanyDomain) {
         input = {
           type: "trustpilot",
           companyDomain: trustpilotCompanyDomain,
-          count: hasAccess("unlimited_reviews") ? 1000 : reviewCount,
+          count: reviewsToFetch,
         }
         analyzedUrl = trustpilotCompanyDomain
         type = "Trustpilot"
-        setLoadingProgress(`Fetching ${reviewCount} reviews from Trustpilot...`)
+        setLoadingProgress(`Fetching ${reviewsToFetch} reviews from Trustpilot...`)
       } else if (airbnbUrl) {
-        input = { type: "airbnb", content: airbnbUrl, reviewCount: hasAccess("unlimited_reviews") ? 1000 : reviewCount }
+        input = { type: "airbnb", content: airbnbUrl, reviewCount: reviewsToFetch }
         analyzedUrl = airbnbUrl
         type = "Airbnb"
-        setLoadingProgress(`Fetching ${reviewCount} reviews from Airbnb...`)
+        setLoadingProgress(`Fetching ${reviewsToFetch} reviews from Airbnb...`)
       } else if (file) {
         const arrayBuffer = await file.arrayBuffer()
         input = { type: "file", content: arrayBuffer }
@@ -681,6 +708,8 @@ export default function AnalyzePageClient() {
     setBulkUrls([])
     setBulkType("")
     setActiveAnalysisTab("overview") // Reset to overview when starting new analysis
+    setIsAnalyzeAllReviews(false) // Reset checkbox state
+    setReviewCount(100) // Reset review count to default
   }
 
   const getSubscriptionBadge = () => {
@@ -830,361 +859,522 @@ export default function AnalyzePageClient() {
             </CardContent>
           </Card>
           {showInputForm ? (
-            <div className="max-w-6xl mx-auto">
-              <Tabs defaultValue={activeInputTab} onValueChange={setActiveInputTab} className="space-y-8">
-                <TabsList className="grid w-full grid-cols-7">
-                  <TabsTrigger value="url">URL</TabsTrigger>
-                  <TabsTrigger value="text">Text</TabsTrigger>
-                  <TabsTrigger value="file">File</TabsTrigger>
-                  <TabsTrigger value="gmb">Google My Business</TabsTrigger>
-                  <TabsTrigger value="tripadvisor">TripAdvisor</TabsTrigger>
-                  <TabsTrigger value="booking">Booking.com</TabsTrigger>
-                  <TabsTrigger value="trustpilot">Trustpilot</TabsTrigger>
-                  <TabsTrigger value="airbnb">
-                    <div className="flex items-center">
-                      <Image src="/images/airbnb-logo.png" alt="Airbnb" width={20} height={20} className="mr-2" />
-                      Airbnb
-                    </div>
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="url">
-                  <div className="space-y-4">
-                    <Input
-                      type="url"
-                      placeholder="Enter URL to analyze reviews from"
-                      value={url1}
-                      onChange={(e) => setUrl1(e.target.value)}
-                      className="h-12 text-lg text-black"
-                    />
-                    <Input
-                      type="url"
-                      placeholder="Optional: Second URL to compare"
-                      value={url2}
-                      onChange={(e) => setUrl2(e.target.value)}
-                      className="h-12 text-lg text-black"
-                    />
-                    <div className="space-y-2">
-                      <label htmlFor="reviewCount" className="text-black text-sm font-medium">
-                        Number of reviews to analyze (max 1000)
-                      </label>
-                      <Input
-                        id="reviewCount"
-                        type="number"
-                        min="1"
-                        max="1000"
-                        placeholder="Enter number of reviews (default: 100)"
-                        value={reviewCount}
-                        onChange={(e) =>
-                          setReviewCount(Math.min(1000, Math.max(1, Number.parseInt(e.target.value) || 100)))
-                        }
-                        className="h-12 text-lg text-black"
-                      />
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="text">
-                  <Textarea
-                    placeholder="Paste reviews here for analysis..."
-                    value={reviews}
-                    onChange={(e) => setReviews(e.target.value)}
-                    className="min-h-[200px] text-lg text-black"
-                  />
-                </TabsContent>
-
-                <TabsContent value="file">
-                  <div className="flex items-center justify-center h-[200px] border-2 border-dashed rounded-lg">
-                    <Input
-                      type="file"
-                      accept=".xls,.xlsx"
-                      onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
-                      className="max-w-sm text-black"
-                    />
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="gmb">
-                  <div className="space-y-4">
-                    <div className="text-black mb-2 font-medium">How to get your Google My Business URL:</div>
-                    <Input
-                      type="url"
-                      placeholder="Enter Google My Business URL"
-                      value={gmbUrl}
-                      onChange={(e) => setGmbUrl(e.target.value)}
-                      className="h-12 text-lg mb-4 text-black"
-                    />
-                    <div className="space-y-2">
-                      <label htmlFor="reviewCount" className="text-black text-sm font-medium">
-                        Number of reviews to analyze (max 1000)
-                      </label>
-                      <Input
-                        id="reviewCount"
-                        type="number"
-                        min="1"
-                        max="1000"
-                        placeholder="Enter number of reviews (default: 100)"
-                        value={reviewCount}
-                        onChange={(e) =>
-                          setReviewCount(Math.min(1000, Math.max(1, Number.parseInt(e.target.value) || 100)))
-                        }
-                        className="h-12 text-lg text-black"
-                      />
-                    </div>
-                    <ol className="list-decimal pl-5 mt-1 space-y-1 text-sm text-gray-700">
-                      <li>Go to Google Maps and search for your business</li>
-                      <li>Click on your business listing</li>
-                      <li>Copy the URL from your browser's address bar</li>
-                    </ol>
-                    <div className="text-sm text-gray-700 mt-1">
-                      <strong>Example:</strong> https://www.google.com/maps/place/Starbucks/@37.7749,-122.4194,15z/
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="tripadvisor">
-                  <div className="space-y-4">
-                    <div className="text-black mb-2 font-medium">How to get your TripAdvisor URL:</div>
-                    <Input
-                      type="url"
-                      placeholder="Enter TripAdvisor URL"
-                      value={tripAdvisorUrl}
-                      onChange={(e) => setTripAdvisorUrl(e.target.value)}
-                      className="h-12 text-lg mb-4 text-black"
-                    />
-                    <div className="space-y-2">
-                      <label htmlFor="reviewCount" className="text-black text-sm font-medium">
-                        Number of reviews to analyze (max 1000)
-                      </label>
-                      <Input
-                        id="reviewCount"
-                        type="number"
-                        min="1"
-                        max="1000"
-                        placeholder="Enter number of reviews (default: 100)"
-                        value={reviewCount}
-                        onChange={(e) =>
-                          setReviewCount(Math.min(1000, Math.max(1, Number.parseInt(e.target.value) || 100)))
-                        }
-                        className="h-12 text-lg text-black"
-                      />
-                    </div>
-                    <ol className="list-decimal pl-5 mt-1 space-y-1 text-sm text-gray-700">
-                      <li>Go to TripAdvisor and search for your business</li>
-                      <li>Click on your business listing</li>
-                      <li>Navigate to the reviews section</li>
-                      <li>Copy the URL from your browser's address bar</li>
-                    </ol>
-                    <div className="text-sm text-gray-700 mt-1">
-                      <strong>Example:</strong>
-                      https://www.tripadvisor.com/Hotel_Review-g60763-d208453-Reviews-Hilton_New_York_Times_Square-New_York_City_New_York.html
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="booking">
-                  <div className="space-y-4">
-                    <div className="text-black mb-2 font-medium">How to get your Booking.com URL:</div>
-                    <Input
-                      type="url"
-                      placeholder="Enter Booking.com URL"
-                      value={bookingUrl}
-                      onChange={(e) => setBookingUrl(e.target.value)}
-                      className="h-12 text-lg mb-4 text-black"
-                    />
-                    <div className="space-y-2">
-                      <label htmlFor="reviewCount" className="text-black text-sm font-medium">
-                        Number of reviews to analyze (max 1000)
-                      </label>
-                      <Input
-                        id="reviewCount"
-                        type="number"
-                        min="1"
-                        max="1000"
-                        placeholder="Enter number of reviews (default: 100)"
-                        value={reviewCount}
-                        onChange={(e) =>
-                          setReviewCount(Math.min(1000, Math.max(1, Number.parseInt(e.target.value) || 100)))
-                        }
-                        className="h-12 text-lg text-black"
-                      />
-                    </div>
-                    <ol className="list-decimal pl-5 mt-1 space-y-1 text-sm text-gray-700">
-                      <li>Go to Booking.com and search for your property</li>
-                      <li>Click on your property listing</li>
-                      <li>Navigate to the reviews section</li>
-                      <li>Copy the URL from your browser's address bar</li>
-                    </ol>
-                    <div className="text-sm text-gray-700 mt-1">
-                      <strong>Example:</strong> https://www.booking.com/hotel/us/bellagio.html
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="trustpilot">
-                  <div className="space-y-4">
-                    <div className="text-black mb-2 font-medium">How to get your Trustpilot Company Domain:</div>
-                    <Input
-                      type="text"
-                      placeholder="Enter Trustpilot Company Domain (e.g., example.com)"
-                      value={trustpilotCompanyDomain}
-                      onChange={(e) => setTrustpilotCompanyDomain(e.target.value)}
-                      className="h-12 text-lg mb-4 text-black"
-                    />
-                    <div className="space-y-2">
-                      <label htmlFor="reviewCount" className="text-black text-sm font-medium">
-                        Number of reviews to analyze (max 1000)
-                      </label>
-                      <Input
-                        id="reviewCount"
-                        type="number"
-                        min="1"
-                        max="1000"
-                        placeholder="Enter number of reviews (default: 100)"
-                        value={reviewCount}
-                        onChange={(e) =>
-                          setReviewCount(Math.min(1000, Math.max(1, Number.parseInt(e.target.value) || 100)))
-                        }
-                        className="h-12 text-lg text-black"
-                      />
-                    </div>
-                    <ol className="list-decimal pl-5 mt-1 space-y-1 text-sm text-gray-700">
-                      <li>Go to Trustpilot and search for your business (e.g., "pipedrive")</li>
-                      <li>
-                        From the business's Trustpilot page, identify the domain in the URL (e.g., "pipedrive.com")
-                      </li>
-                      <li>Enter only the domain name (e.g., "pipedrive.com")</li>
-                    </ol>
-                    <div className="text-sm text-gray-700 mt-1">
-                      <strong>Example:</strong> For https://www.trustpilot.com/review/pipedrive.com, enter
-                      `pipedrive.com`
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="airbnb">
-                  <div className="space-y-4">
-                    <div className="text-black mb-2 font-medium">How to get your Airbnb URL:</div>
-                    <Input
-                      type="url"
-                      placeholder="Enter Airbnb URL"
-                      value={airbnbUrl}
-                      onChange={(e) => setAirbnbUrl(e.target.value)}
-                      className="h-12 text-lg mb-4 text-black"
-                    />
-                    <div className="space-y-2">
-                      <label htmlFor="reviewCount" className="text-black text-sm font-medium">
-                        Number of reviews to analyze (max 1000)
-                      </label>
-                      <Input
-                        id="reviewCount"
-                        type="number"
-                        min="1"
-                        max="1000"
-                        placeholder="Enter number of reviews (default: 100)"
-                        value={reviewCount}
-                        onChange={(e) =>
-                          setReviewCount(Math.min(1000, Math.max(1, Number.parseInt(e.target.value) || 100)))
-                        }
-                        className="h-12 text-lg text-black"
-                      />
-                    </div>
-                    <ol className="list-decimal pl-5 mt-1 space-y-1 text-sm text-gray-700">
-                      <li>Go to Airbnb and search for your listing</li>
-                      <li>Click on your listing</li>
-                      <li>Copy the URL from your browser's address bar</li>
-                    </ol>
-                    <div className="text-sm text-gray-700 mt-1">
-                      <strong>Example:</strong> https://www.airbnb.com/rooms/123456789
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <div className="flex justify-center">
-                  <Button
-                    onClick={handleAnalyze}
-                    disabled={loading}
-                    className="bg-black text-white hover:bg-gray-800 h-12 px-8 text-lg"
-                  >
-                    {loading ? (
-                      <div className="flex items-center gap-2">
-                        <svg
-                          className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
-                        <div className="flex flex-col items-start">
-                          <span>{loadingProgress || "Analyzing..."}</span>
-                          {loadingStep > 0 && (
-                            <span className="text-xs opacity-75">
-                              Step {loadingStep} of {totalSteps}
-                            </span>
-                          )}
-                        </div>
+            isClient ? ( // Conditionally render Tabs only on client after mount
+              <div className="max-w-6xl mx-auto">
+                <Tabs defaultValue={activeInputTab} onValueChange={setActiveInputTab} className="space-y-8">
+                  <TabsList className="grid w-full grid-cols-7">
+                    <TabsTrigger value="url">URL</TabsTrigger>
+                    <TabsTrigger value="text">Text</TabsTrigger>
+                    <TabsTrigger value="file">File</TabsTrigger>
+                    <TabsTrigger value="gmb">Google My Business</TabsTrigger>
+                    <TabsTrigger value="tripadvisor">TripAdvisor</TabsTrigger>
+                    <TabsTrigger value="booking">Booking.com</TabsTrigger>
+                    <TabsTrigger value="trustpilot">Trustpilot</TabsTrigger>
+                    <TabsTrigger value="airbnb">
+                      <div className="flex items-center">
+                        <Image src="/images/airbnb-logo.png" alt="Airbnb" width={20} height={20} className="mr-2" />
+                        Airbnb
                       </div>
-                    ) : (
-                      "Analyze Reviews"
-                    )}
-                  </Button>
-                </div>
-              </Tabs>
-            </div>
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="url">
+                    <div className="space-y-4">
+                      <Input
+                        type="url"
+                        placeholder="Enter URL to analyze reviews from"
+                        value={url1}
+                        onChange={(e) => setUrl1(e.target.value)}
+                        className="h-12 text-lg text-black"
+                      />
+                      <Input
+                        type="url"
+                        placeholder="Optional: Second URL to compare"
+                        value={url2}
+                        onChange={(e) => setUrl2(e.target.value)}
+                        className="h-12 text-lg text-black"
+                      />
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <Checkbox
+                            id="analyze-all-reviews-url"
+                            checked={isAnalyzeAllReviews}
+                            onCheckedChange={(checked) => {
+                              setIsAnalyzeAllReviews(checked as boolean)
+                              if (checked) {
+                                setReviewCount(10000) // Set to a very high number for "all"
+                              } else {
+                                setReviewCount(100) // Reset to default if unchecked
+                              }
+                            }}
+                            disabled={!hasAccess("unlimited_reviews")} // Disable if user doesn't have unlimited access
+                          />
+                          <label
+                            htmlFor="analyze-all-reviews-url"
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-black"
+                          >
+                            Analyze all reviews (requires Standard or Custom plan)
+                          </label>
+                        </div>
+                        <label htmlFor="reviewCount" className="text-black text-sm font-medium">
+                          Number of reviews to analyze (max 1000)
+                        </label>
+                        <Input
+                          id="reviewCount"
+                          type="number"
+                          min="1"
+                          max="1000"
+                          placeholder="Enter number of reviews (default: 100)"
+                          value={reviewCount}
+                          onChange={(e) =>
+                            setReviewCount(Math.min(1000, Math.max(1, Number.parseInt(e.target.value) || 100)))
+                          }
+                          className="h-12 text-lg text-black"
+                          disabled={isAnalyzeAllReviews} // Disable if "Analyze all reviews" is checked
+                        />
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="text">
+                    <Textarea
+                      placeholder="Paste reviews here for analysis..."
+                      value={reviews}
+                      onChange={(e) => setReviews(e.target.value)}
+                      className="min-h-[200px] text-lg text-black"
+                    />
+                  </TabsContent>
+
+                  <TabsContent value="file">
+                    <div className="flex items-center justify-center h-[200px] border-2 border-dashed rounded-lg">
+                      <Input
+                        type="file"
+                        accept=".xls,.xlsx"
+                        onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
+                        className="max-w-sm text-black"
+                      />
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="gmb">
+                    <div className="space-y-4">
+                      <div className="text-black mb-2 font-medium">How to get your Google My Business URL:</div>
+                      <Input
+                        type="url"
+                        placeholder="Enter Google My Business URL"
+                        value={gmbUrl}
+                        onChange={(e) => setGmbUrl(e.target.value)}
+                        className="h-12 text-lg mb-4 text-black"
+                      />
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <Checkbox
+                            id="analyze-all-reviews-gmb"
+                            checked={isAnalyzeAllReviews}
+                            onCheckedChange={(checked) => {
+                              setIsAnalyzeAllReviews(checked as boolean)
+                              if (checked) {
+                                setReviewCount(10000) // Set to a very high number for "all"
+                              } else {
+                                setReviewCount(100) // Reset to default if unchecked
+                              }
+                            }}
+                            disabled={!hasAccess("unlimited_reviews")} // Disable if user doesn't have unlimited access
+                          />
+                          <label
+                            htmlFor="analyze-all-reviews-gmb"
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-black"
+                          >
+                            Analyze all reviews (requires Standard or Custom plan)
+                          </label>
+                        </div>
+                        <label htmlFor="reviewCount" className="text-black text-sm font-medium">
+                          Number of reviews to analyze (max 1000)
+                        </label>
+                        <Input
+                          id="reviewCount"
+                          type="number"
+                          min="1"
+                          max="1000"
+                          placeholder="Enter number of reviews (default: 100)"
+                          value={reviewCount}
+                          onChange={(e) =>
+                            setReviewCount(Math.min(1000, Math.max(1, Number.parseInt(e.target.value) || 100)))
+                          }
+                          className="h-12 text-lg text-black"
+                          disabled={isAnalyzeAllReviews} // Disable if "Analyze all reviews" is checked
+                        />
+                      </div>
+                      <ol className="list-decimal pl-5 mt-1 space-y-1 text-sm text-gray-700">
+                        <li>Go to Google Maps and search for your business</li>
+                        <li>Click on your business listing</li>
+                        <li>Copy the URL from your browser's address bar</li>
+                      </ol>
+                      <div className="text-sm text-gray-700 mt-1">
+                        <strong>Example:</strong> https://www.google.com/maps/place/Starbucks/@37.7749,-122.4194,15z/
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="tripadvisor">
+                    <div className="space-y-4">
+                      <div className="text-black mb-2 font-medium">How to get your TripAdvisor URL:</div>
+                      <Input
+                        type="url"
+                        placeholder="Enter TripAdvisor URL"
+                        value={tripAdvisorUrl}
+                        onChange={(e) => setTripAdvisorUrl(e.target.value)}
+                        className="h-12 text-lg mb-4 text-black"
+                      />
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <Checkbox
+                            id="analyze-all-reviews-tripadvisor"
+                            checked={isAnalyzeAllReviews}
+                            onCheckedChange={(checked) => {
+                              setIsAnalyzeAllReviews(checked as boolean)
+                              if (checked) {
+                                setReviewCount(10000) // Set to a very high number for "all"
+                              } else {
+                                setReviewCount(100) // Reset to default if unchecked
+                              }
+                            }}
+                            disabled={!hasAccess("unlimited_reviews")} // Disable if user doesn't have unlimited access
+                          />
+                          <label
+                            htmlFor="analyze-all-reviews-tripadvisor"
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-black"
+                          >
+                            Analyze all reviews (requires Standard or Custom plan)
+                          </label>
+                        </div>
+                        <label htmlFor="reviewCount" className="text-black text-sm font-medium">
+                          Number of reviews to analyze (max 1000)
+                        </label>
+                        <Input
+                          id="reviewCount"
+                          type="number"
+                          min="1"
+                          max="1000"
+                          placeholder="Enter number of reviews (default: 100)"
+                          value={reviewCount}
+                          onChange={(e) =>
+                            setReviewCount(Math.min(1000, Math.max(1, Number.parseInt(e.target.value) || 100)))
+                          }
+                          className="h-12 text-lg text-black"
+                          disabled={isAnalyzeAllReviews} // Disable if "Analyze all reviews" is checked
+                        />
+                      </div>
+                      <ol className="list-decimal pl-5 mt-1 space-y-1 text-sm text-gray-700">
+                        <li>Go to TripAdvisor and search for your business</li>
+                        <li>Click on your business listing</li>
+                        <li>Navigate to the reviews section</li>
+                        <li>Copy the URL from your browser's address bar</li>
+                      </ol>
+                      <div className="text-sm text-gray-700 mt-1">
+                        <strong>Example:</strong>
+                        https://www.tripadvisor.com/Hotel_Review-g60763-d208453-Reviews-Hilton_New_York_Times_Square-New_York_City_New_York.html
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="booking">
+                    <div className="space-y-4">
+                      <div className="text-black mb-2 font-medium">How to get your Booking.com URL:</div>
+                      <Input
+                        type="url"
+                        placeholder="Enter Booking.com URL"
+                        value={bookingUrl}
+                        onChange={(e) => setBookingUrl(e.target.value)}
+                        className="h-12 text-lg mb-4 text-black"
+                      />
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <Checkbox
+                            id="analyze-all-reviews-booking"
+                            checked={isAnalyzeAllReviews}
+                            onCheckedChange={(checked) => {
+                              setIsAnalyzeAllReviews(checked as boolean)
+                              if (checked) {
+                                setReviewCount(10000) // Set to a very high number for "all"
+                              } else {
+                                setReviewCount(100) // Reset to default if unchecked
+                              }
+                            }}
+                            disabled={!hasAccess("unlimited_reviews")} // Disable if user doesn't have unlimited access
+                          />
+                          <label
+                            htmlFor="analyze-all-reviews-booking"
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-black"
+                          >
+                            Analyze all reviews (requires Standard or Custom plan)
+                          </label>
+                        </div>
+                        <label htmlFor="reviewCount" className="text-black text-sm font-medium">
+                          Number of reviews to analyze (max 1000)
+                        </label>
+                        <Input
+                          id="reviewCount"
+                          type="number"
+                          min="1"
+                          max="1000"
+                          placeholder="Enter number of reviews (default: 100)"
+                          value={reviewCount}
+                          onChange={(e) =>
+                            setReviewCount(Math.min(1000, Math.max(1, Number.parseInt(e.target.value) || 100)))
+                          }
+                          className="h-12 text-lg text-black"
+                          disabled={isAnalyzeAllReviews} // Disable if "Analyze all reviews" is checked
+                        />
+                      </div>
+                      <ol className="list-decimal pl-5 mt-1 space-y-1 text-sm text-gray-700">
+                        <li>Go to Booking.com and search for your property</li>
+                        <li>Click on your property listing</li>
+                        <li>Navigate to the reviews section</li>
+                        <li>Copy the URL from your browser's address bar</li>
+                      </ol>
+                      <div className="text-sm text-gray-700 mt-1">
+                        <strong>Example:</strong> https://www.booking.com/hotel/us/bellagio.html
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="trustpilot">
+                    <div className="space-y-4">
+                      <div className="text-black mb-2 font-medium">How to get your Trustpilot Company Domain:</div>
+                      <Input
+                        type="text"
+                        placeholder="Enter Trustpilot Company Domain (e.g., example.com)"
+                        value={trustpilotCompanyDomain}
+                        onChange={(e) => setTrustpilotCompanyDomain(e.target.value)}
+                        className="h-12 text-lg mb-4 text-black"
+                      />
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <Checkbox
+                            id="analyze-all-reviews-trustpilot"
+                            checked={isAnalyzeAllReviews}
+                            onCheckedChange={(checked) => {
+                              setIsAnalyzeAllReviews(checked as boolean)
+                              if (checked) {
+                                setReviewCount(10000) // Set to a very high number for "all"
+                              } else {
+                                setReviewCount(100) // Reset to default if unchecked
+                              }
+                            }}
+                            disabled={!hasAccess("unlimited_reviews")} // Disable if user doesn't have unlimited access
+                          />
+                          <label
+                            htmlFor="analyze-all-reviews-trustpilot"
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-black"
+                          >
+                            Analyze all reviews (requires Standard or Custom plan)
+                          </label>
+                        </div>
+                        <label htmlFor="reviewCount" className="text-black text-sm font-medium">
+                          Number of reviews to analyze (max 1000)
+                        </label>
+                        <Input
+                          id="reviewCount"
+                          type="number"
+                          min="1"
+                          max="1000"
+                          placeholder="Enter number of reviews (default: 100)"
+                          value={reviewCount}
+                          onChange={(e) =>
+                            setReviewCount(Math.min(1000, Math.max(1, Number.parseInt(e.target.value) || 100)))
+                          }
+                          className="h-12 text-lg text-black"
+                          disabled={isAnalyzeAllReviews} // Disable if "Analyze all reviews" is checked
+                        />
+                      </div>
+                      <ol className="list-decimal pl-5 mt-1 space-y-1 text-sm text-gray-700">
+                        <li>Go to Trustpilot and search for your business (e.g., "pipedrive")</li>
+                        <li>
+                          From the business's Trustpilot page, identify the domain in the URL (e.g., "pipedrive.com")
+                        </li>
+                        <li>Enter only the domain name (e.g., "pipedrive.com")</li>
+                      </ol>
+                      <div className="text-sm text-gray-700 mt-1">
+                        <strong>Example:</strong> For https://www.trustpilot.com/review/pipedrive.com, enter
+                        `pipedrive.com`
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="airbnb">
+                    <div className="space-y-4">
+                      <div className="text-black mb-2 font-medium">How to get your Airbnb URL:</div>
+                      <Input
+                        type="url"
+                        placeholder="Enter Airbnb URL"
+                        value={airbnbUrl}
+                        onChange={(e) => setAirbnbUrl(e.target.value)}
+                        className="h-12 text-lg mb-4 text-black"
+                      />
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <Checkbox
+                            id="analyze-all-reviews-airbnb"
+                            checked={isAnalyzeAllReviews}
+                            onCheckedChange={(checked) => {
+                              setIsAnalyzeAllReviews(checked as boolean)
+                              if (checked) {
+                                setReviewCount(10000) // Set to a very high number for "all"
+                              } else {
+                                setReviewCount(100) // Reset to default if unchecked
+                              }
+                            }}
+                            disabled={!hasAccess("unlimited_reviews")} // Disable if user doesn't have unlimited access
+                          />
+                          <label
+                            htmlFor="analyze-all-reviews-airbnb"
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-black"
+                          >
+                            Analyze all reviews (requires Standard or Custom plan)
+                          </label>
+                        </div>
+                        <label htmlFor="reviewCount" className="text-black text-sm font-medium">
+                          Number of reviews to analyze (max 1000)
+                        </label>
+                        <Input
+                          id="reviewCount"
+                          type="number"
+                          min="1"
+                          max="1000"
+                          placeholder="Enter number of reviews (default: 100)"
+                          value={reviewCount}
+                          onChange={(e) =>
+                            setReviewCount(Math.min(1000, Math.max(1, Number.parseInt(e.target.value) || 100)))
+                          }
+                          className="h-12 text-lg text-black"
+                          disabled={isAnalyzeAllReviews} // Disable if "Analyze all reviews" is checked
+                        />
+                      </div>
+                      <ol className="list-decimal pl-5 mt-1 space-y-1 text-sm text-gray-700">
+                        <li>Go to Airbnb and search for your listing</li>
+                        <li>Click on your listing</li>
+                        <li>Copy the URL from your browser's address bar</li>
+                      </ol>
+                      <div className="text-sm text-gray-700 mt-1">
+                        <strong>Example:</strong> https://www.airbnb.com/rooms/123456789
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <div className="flex justify-center">
+                    <Button
+                      onClick={handleAnalyze}
+                      disabled={loading}
+                      className="bg-black text-white hover:bg-gray-800 h-12 px-8 text-lg"
+                    >
+                      {loading ? (
+                        <div className="flex items-center gap-2">
+                          <svg
+                            className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          <div className="flex flex-col items-start">
+                            <span>{loadingProgress || "Analyzing..."}</span>
+                            {loadingStep > 0 && (
+                              <span className="text-xs opacity-75">
+                                Step {loadingStep} of {totalSteps}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        "Analyze Reviews"
+                      )}
+                    </Button>
+                  </div>
+                </Tabs>
+              </div>
+            ) : (
+              // Placeholder for server-side rendering to avoid empty space
+              <div className="max-w-6xl mx-auto h-[500px] flex items-center justify-center text-gray-500">
+                Loading form...
+              </div>
+            )
           ) : (
-            <Tabs
-              value={activeAnalysisTab}
-              onValueChange={setActiveAnalysisTab}
-              className="flex flex-col md:flex-row gap-6 max-w-7xl mx-auto"
-            >
+            /* Replace Tabs with a div, as the inner TabsList is being removed */
+            <div className="flex flex-col md:flex-row gap-6 max-w-7xl mx-auto">
               {/* Left Sidebar for Analysis Tabs */}
               <div className="md:w-64 flex-shrink-0 bg-gray-50 p-4 rounded-lg shadow-sm">
                 <h2 className="text-lg font-semibold mb-4 text-black">Analysis Sections</h2>
-                <TabsList className="flex flex-col h-auto items-start justify-start bg-transparent p-0 space-y-1">
-                  <TabsTrigger
-                    value="overview"
-                    className="w-full justify-start data-[state=active]:bg-gray-200 data-[state=active]:shadow-none text-black"
+                {/* Replaced TabsList with a div and TabsTrigger with Buttons */}
+                <div className="flex flex-col h-auto items-start justify-start bg-transparent p-0 space-y-1">
+                  <Button
+                    onClick={() => setActiveAnalysisTab("overview")}
+                    className={cn(
+                      "w-full justify-start",
+                      activeAnalysisTab === "overview" ? "bg-gray-200 shadow-none" : "bg-transparent hover:bg-gray-100",
+                      "text-black",
+                    )}
                   >
                     Overview
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="sentiment"
-                    className="w-full justify-start data-[state=active]:bg-gray-200 data-[state=active]:shadow-none text-black"
+                  </Button>
+                  <Button
+                    onClick={() => setActiveAnalysisTab("sentiment")}
+                    className={cn(
+                      "w-full justify-start",
+                      activeAnalysisTab === "sentiment"
+                        ? "bg-gray-200 shadow-none"
+                        : "bg-transparent hover:bg-gray-100",
+                      "text-black",
+                    )}
                   >
                     Sentiment
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="themes"
-                    className="w-full justify-start data-[state=active]:bg-gray-200 data-[state=active]:shadow-none text-black"
+                  </Button>
+                  <Button
+                    onClick={() => setActiveAnalysisTab("themes")}
+                    className={cn(
+                      "w-full justify-start",
+                      activeAnalysisTab === "themes" ? "bg-gray-200 shadow-none" : "bg-transparent hover:bg-gray-100",
+                      "text-black",
+                    )}
                   >
                     Themes
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="customer"
-                    className="w-full justify-start data-[state=active]:bg-gray-200 data-[state=active]:shadow-none text-black"
+                  </Button>
+                  <Button
+                    onClick={() => setActiveAnalysisTab("customer")}
+                    className={cn(
+                      "w-full justify-start",
+                      activeAnalysisTab === "customer" ? "bg-gray-200 shadow-none" : "bg-transparent hover:bg-gray-100",
+                      "text-black",
+                    )}
                   >
                     Customer
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="marketing"
-                    className="w-full justify-start data-[state=active]:bg-gray-200 data-[state=active]:shadow-none text-black"
+                  </Button>
+                  <Button
+                    onClick={() => setActiveAnalysisTab("marketing")}
+                    className={cn(
+                      "w-full justify-start",
+                      activeAnalysisTab === "marketing"
+                        ? "bg-gray-200 shadow-none"
+                        : "bg-transparent hover:bg-gray-100",
+                      "text-black",
+                    )}
                   >
                     Marketing
-                  </TabsTrigger>
-                </TabsList>
+                  </Button>
+                </div>
               </div>
 
               {/* Main Content Area for Analysis Results */}
@@ -1217,7 +1407,7 @@ export default function AnalyzePageClient() {
                   activeTab={activeAnalysisTab}
                 />
               </div>
-            </Tabs>
+            </div>
           )}
           {error && (
             <div className="mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded max-w-6xl mx-auto">

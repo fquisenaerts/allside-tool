@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer"
+import { Resend } from "resend"
 
 interface SendEmailParams {
   to: string
@@ -12,6 +12,8 @@ interface SendEmailParams {
   }>
 }
 
+const resend = new Resend(process.env.RESEND_API_KEY)
+
 export async function sendEmail({
   to,
   subject,
@@ -20,28 +22,27 @@ export async function sendEmail({
   attachments = [],
 }: SendEmailParams): Promise<{ success: boolean; error?: string }> {
   try {
-    // Create a nodemailer transporter
-    const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST,
-      port: Number.parseInt(process.env.EMAIL_PORT || "587"),
-      secure: process.env.EMAIL_SECURE === "true",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD,
-      },
-    })
+    const fromEmail = process.env.EMAIL_FROM || "contact@allside.com"
+    const fromName = process.env.EMAIL_FROM_NAME || "Allside Reports"
 
-    // Send the email
-    const info = await transporter.sendMail({
-      from: `"${process.env.EMAIL_FROM_NAME || "Allside Reports"}" <${process.env.EMAIL_FROM}>`,
-      to,
+    const { data, error } = await resend.emails.send({
+      from: `${fromName} <${fromEmail}>`,
+      to: [to], // Resend 'to' expects an array of strings
       subject,
-      text,
       html,
-      attachments,
+      text,
+      attachments: attachments.map((att) => ({
+        filename: att.filename,
+        content: att.content,
+      })),
     })
 
-    console.log("Email sent:", info.messageId)
+    if (error) {
+      console.error("Error sending email with Resend:", error)
+      return { success: false, error: error.message }
+    }
+
+    console.log("Email sent with Resend:", data?.id)
     return { success: true }
   } catch (error) {
     console.error("Error sending email:", error)

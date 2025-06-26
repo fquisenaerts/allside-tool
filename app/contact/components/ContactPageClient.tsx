@@ -35,11 +35,29 @@ export default function ContactPageClient() {
     e.preventDefault()
     setIsSubmitting(true)
 
-    // Simulate form submission
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      })
 
-    setSubmitted(true)
-    setIsSubmitting(false)
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        setSubmitted(true)
+      } else {
+        console.error("Form submission failed:", data.error)
+        alert(`Failed to send message: ${data.error || "Unknown error"}`) // Provide user feedback
+      }
+    } catch (error) {
+      console.error("Error during form submission:", error)
+      alert("An unexpected error occurred. Please try again later.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (

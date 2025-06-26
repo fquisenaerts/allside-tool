@@ -5,6 +5,7 @@ import { useTranslation } from "../hooks/useTranslation"
 import { Logo } from "./Logo" // Import the Logo component
 import { getLocalizedUrl } from "@/lib/urlMapping"
 import { useLanguage } from "@/app/contexts/LanguageContext"
+import { Linkedin } from "lucide-react" // Import the LinkedIn icon
 
 export function Footer() {
   const { t } = useTranslation()
@@ -77,6 +78,18 @@ export function Footer() {
               </li>
             </ul>
           </div>
+        </div>
+        {/* LinkedIn Logo Section */}
+        <div className="flex justify-center space-x-4 mb-8">
+          <Link
+            href="https://www.linkedin.com/company/allside-fr/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gray-400 hover:text-white"
+          >
+            <Linkedin className="h-6 w-6" />
+            <span className="sr-only">LinkedIn</span>
+          </Link>
         </div>
         <div className="text-center text-sm text-gray-400">{t("footer.copyright")}</div>
       </div>

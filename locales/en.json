@@ -10,6 +10,7 @@
       }
     },
     "errors": {
+      "title": "Error",
       "bulkAnalysisUpgrade": "Bulk analysis is a premium feature. Please upgrade your plan to use it.",
       "noResults": "No analysis results were found for the provided input.",
       "combineFailed": "Failed to combine analysis results.",

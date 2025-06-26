@@ -11,7 +11,9 @@ export function CustomCursor() {
   const pathname = usePathname()
 
   // Check if we should display the cursor on the current page
-  const shouldDisplayCursor = !pathname.startsWith("/analyze") && !pathname.startsWith("/my-establishments")
+  // Explicitly include the root path "/"
+  const shouldDisplayCursor =
+    pathname === "/" || (!pathname.startsWith("/analyze") && !pathname.startsWith("/my-establishments"))
 
   useEffect(() => {
     if (!shouldDisplayCursor) return

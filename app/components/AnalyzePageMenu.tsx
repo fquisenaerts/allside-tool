@@ -83,9 +83,7 @@ export function AnalyzePageMenu() {
     <div className="w-64 flex-shrink-0 bg-black border-r border-gray-800 p-4 flex flex-col h-screen sticky top-0">
       {/* Logo */}
       <div className="mb-8">
-        <Link href="/" className="flex items-center justify-center">
-          <Logo />
-        </Link>
+        <Logo />
       </div>
 
       {/* Navigation Links */}

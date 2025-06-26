@@ -12,13 +12,14 @@ export default function AboutPageClient() {
     <div className="flex flex-col min-h-screen">
       <Header />
       <main className="flex-grow pt-24">
-        {/* Hero Section */}
+        {/* Removed Hero Section */}
+        {/*
         <section className="py-16 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            {/* Removed: <h1 className="text-4xl md:text-6xl font-bold mb-6">{t("about.hero.title")}</h1> */}
             <p className="text-xl md:text-2xl max-w-3xl mx-auto">{t("about.hero.subtitle")}</p>
           </div>
         </section>
+        */}
 
         {/* Mission Section */}
         <section className="py-16 bg-[#050314]">
@@ -34,10 +35,10 @@ export default function AboutPageClient() {
               </div>
               <div className="relative">
                 <Image
-                  src="/images/data-analysis-dashboard-people.png"
-                  alt={t("about.mission.imageAlt")}
-                  width={600}
-                  height={400}
+                  src="/images/review-stars-phone-new.png"
+                  alt={t("about.hero.imageAlt")}
+                  width={500}
+                  height={300}
                   className="rounded-lg shadow-lg"
                 />
               </div>
@@ -103,7 +104,7 @@ export default function AboutPageClient() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
               <div className="relative">
                 <Image
-                  src="/images/ai-technology-people.png"
+                  src="/images/data-analysis-charts.png"
                   alt={t("about.technology.imageAlt")}
                   width={600}
                   height={400}

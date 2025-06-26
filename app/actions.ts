@@ -688,6 +688,7 @@ async function fetchGMBReviews(
 
     console.log(`🎯 FETCHING EXACTLY ${maxReviews} reviews for: ${gmapUrl}`)
 
+    console.log("🔍 Checking Supabase cache for URL:", gmapUrl)
     // Check if we have cached results for this URL
     const { data: cachedData, error: cacheError } = await supabase
       .from("review_cache")
@@ -702,11 +703,14 @@ async function fetchGMBReviews(
       return exactReviews
     }
 
+    console.log("🚫 No cached reviews found. Initiating new Apify run.")
+
     // Start a new run with more aggressive settings for Google Maps
     console.log(
       `🚀 Requesting ${Math.max(maxReviews * 2, 200)} reviews from Google Maps API (will trim to ${maxReviews})`,
     )
 
+    console.log("📤 Sending request to Apify to start run...")
     const runResponse = await fetch("https://api.apify.com/v2/acts/Xb8osYTtOjlsgI6k9/runs", {
       method: "POST",
       headers: {
@@ -726,6 +730,8 @@ async function fetchGMBReviews(
         maxReviewsPerPlace: Math.max(maxReviews * 2, 200),
       }),
     })
+
+    console.log("✅ Apify run request sent successfully. Waiting for run data...")
 
     if (!runResponse.ok) {
       const errorText = await runResponse.text()
@@ -749,12 +755,14 @@ async function fetchGMBReviews(
 
       console.log(`⏳ Checking status... Attempt ${retries + 1}/${maxRetries}`)
 
+      console.log("📤 Sending request to Apify for run status (Run ID: ${runId})...")
       const statusResponse = await fetch(`https://api.apify.com/v2/acts/Xb8osYTtOjlsgI6k9/runs/${runId}`, {
         headers: {
           Authorization: `Bearer ${APIFY_API_TOKEN}`,
         },
       })
 
+      console.log("✅ Apify run status response received.")
       if (!statusResponse.ok) {
         console.error(`Status check failed: ${statusResponse.status}`)
         throw new Error(`Failed to get run status: ${statusResponse.status}`)
@@ -789,12 +797,14 @@ async function fetchGMBReviews(
       throw new Error("No dataset ID found in run data")
     }
 
+    console.log("📤 Sending request to Apify for dataset items (Dataset ID: ${datasetId})...")
     const datasetResponse = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items`, {
       headers: {
         Authorization: `Bearer ${APIFY_API_TOKEN}`,
       },
     })
 
+    console.log("✅ Apify dataset items response received.")
     if (!datasetResponse.ok) {
       throw new Error(`Failed to get dataset items: ${datasetResponse.status}`)
     }
