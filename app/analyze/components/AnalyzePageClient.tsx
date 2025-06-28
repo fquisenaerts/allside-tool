@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { getLocalizedUrl } from "@/lib/urlMapping"
 import { useLanguage } from "@/app/contexts/LanguageContext"
+import { Checkbox } from "@/components/ui/checkbox"
 
 export default function AnalyzePageClient() {
   const { t } = useTranslation()
@@ -62,6 +63,7 @@ export default function AnalyzePageClient() {
   const [isUnlimited, setIsUnlimited] = useState(false)
   const [monthlyLimit, setMonthlyLimit] = useState(200)
   const [reviewCount, setReviewCount] = useState<number>(100) // Default to 100 reviews
+  const [analyzeAllReviews, setAnalyzeAllReviews] = useState(false) // New state for "Analyze all reviews" checkbox
 
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -307,21 +309,22 @@ export default function AnalyzePageClient() {
       // Process each URL and combine results
       const allResults = []
       let combinedResults = null
+      const reviewsToFetch = analyzeAllReviews ? -1 : reviewCount
 
       for (const url of urls) {
         let input: any = {}
         if (type === "Google My Business") {
-          input = { type: "gmb", content: url, reviewCount: reviewCount }
+          input = { type: "gmb", content: url, reviewCount: reviewsToFetch }
         } else if (type === "TripAdvisor") {
-          input = { type: "tripadvisor", content: url, reviewCount: reviewCount }
+          input = { type: "tripadvisor", content: url, reviewCount: reviewsToFetch }
         } else if (type === "Booking.com") {
-          input = { type: "booking", content: url, reviewCount: reviewCount }
+          input = { type: "booking", content: url, reviewCount: reviewsToFetch }
         } else if (type === "Trustpilot") {
-          input = { type: "trustpilot", companyDomain: url, count: reviewCount }
+          input = { type: "trustpilot", companyDomain: url, count: reviewsToFetch }
         } else if (type === "Airbnb") {
-          input = { type: "airbnb", content: url, reviewCount: reviewCount }
+          input = { type: "airbnb", content: url, reviewCount: reviewsToFetch }
         } else if (type === "URL Comparison") {
-          input = { type: "url", content: url, reviewCount: reviewCount }
+          input = { type: "url", content: url, reviewCount: reviewsToFetch }
         }
 
         try {
@@ -531,6 +534,9 @@ export default function AnalyzePageClient() {
       let analyzedUrl = null
       let type = null
 
+      // Determine the review count to use
+      const effectiveReviewCount = analyzeAllReviews ? -1 : hasAccess("unlimited_reviews") ? 1000 : reviewCount
+
       if (url1 && url2) {
         // Handle comparison of two URLs
         setIsBulkAnalysis(true)
@@ -539,11 +545,11 @@ export default function AnalyzePageClient() {
         await handleBulkAnalyze([url1, url2], "URL Comparison")
         return // Exit after handling bulk analysis
       } else if (url1) {
-        input = { type: "url", content: url1, reviewCount: hasAccess("unlimited_reviews") ? 1000 : reviewCount }
+        input = { type: "url", content: url1, reviewCount: effectiveReviewCount }
         analyzedUrl = url1
         type = "URL"
       } else if (gmbUrl) {
-        input = { type: "gmb", content: gmbUrl, reviewCount: hasAccess("unlimited_reviews") ? 1000 : reviewCount }
+        input = { type: "gmb", content: gmbUrl, reviewCount: effectiveReviewCount }
         analyzedUrl = gmbUrl
         type = "Google My Business"
         setLoadingProgress(t("analyze.loading.fetchingReviews", { count: reviewCount, platform: "Google My Business" }))
@@ -551,7 +557,7 @@ export default function AnalyzePageClient() {
         input = {
           type: "tripadvisor",
           content: tripAdvisorUrl,
-          reviewCount: hasAccess("unlimited_reviews") ? 1000 : reviewCount,
+          reviewCount: effectiveReviewCount,
         }
         analyzedUrl = tripAdvisorUrl
         type = "TripAdvisor"
@@ -560,7 +566,7 @@ export default function AnalyzePageClient() {
         input = {
           type: "booking",
           content: bookingUrl,
-          reviewCount: hasAccess("unlimited_reviews") ? 1000 : reviewCount,
+          reviewCount: effectiveReviewCount,
         }
         analyzedUrl = bookingUrl
         type = "Booking.com"
@@ -569,13 +575,13 @@ export default function AnalyzePageClient() {
         input = {
           type: "trustpilot",
           companyDomain: trustpilotCompanyDomain,
-          count: hasAccess("unlimited_reviews") ? 1000 : reviewCount,
+          count: effectiveReviewCount,
         }
         analyzedUrl = trustpilotCompanyDomain
         type = "Trustpilot"
         setLoadingProgress(t("analyze.loading.fetchingReviews", { count: reviewCount, platform: "Trustpilot" }))
       } else if (airbnbUrl) {
-        input = { type: "airbnb", content: airbnbUrl, reviewCount: hasAccess("unlimited_reviews") ? 1000 : reviewCount }
+        input = { type: "airbnb", content: airbnbUrl, reviewCount: effectiveReviewCount }
         analyzedUrl = airbnbUrl
         type = "Airbnb"
         setLoadingProgress(t("analyze.loading.fetchingReviews", { count: reviewCount, platform: "Airbnb" }))
@@ -805,7 +811,7 @@ export default function AnalyzePageClient() {
                     size="sm"
                     onClick={resetUsageCounter}
                     disabled={isResetting}
-                    className="text-black border-gray-300 hover:bg-gray-100" // Updated text and border color
+                    className="text-black border-gray-300 hover:bg-gray-100 bg-transparent" // Updated text and border color
                   >
                     <RotateCcw className="h-4 w-4 mr-2" />
                     {isResetting ? t("analyze.usage.resetting") : t("analyze.usage.resetUsage")}
@@ -888,6 +894,16 @@ export default function AnalyzePageClient() {
                       className="h-12 text-lg text-black"
                     />
                     <div className="space-y-2">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Checkbox
+                          id="analyze-all-reviews"
+                          checked={analyzeAllReviews}
+                          onCheckedChange={(checked) => setAnalyzeAllReviews(checked as boolean)}
+                        />
+                        <label htmlFor="analyze-all-reviews" className="text-black text-sm font-medium">
+                          {t("analyze.analyzeAllReviews")}
+                        </label>
+                      </div>
                       <label htmlFor="reviewCount" className="text-black text-sm font-medium">
                         {t("analyze.reviewCountLabel")}
                       </label>
@@ -902,6 +918,7 @@ export default function AnalyzePageClient() {
                           setReviewCount(Math.min(1000, Math.max(1, Number.parseInt(e.target.value) || 100)))
                         }
                         className="h-12 text-lg text-black"
+                        disabled={analyzeAllReviews}
                       />
                     </div>
                   </div>
@@ -938,6 +955,16 @@ export default function AnalyzePageClient() {
                       className="h-12 text-lg mb-4 text-black"
                     />
                     <div className="space-y-2">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Checkbox
+                          id="analyze-all-reviews"
+                          checked={analyzeAllReviews}
+                          onCheckedChange={(checked) => setAnalyzeAllReviews(checked as boolean)}
+                        />
+                        <label htmlFor="analyze-all-reviews" className="text-black text-sm font-medium">
+                          {t("analyze.analyzeAllReviews")}
+                        </label>
+                      </div>
                       <label htmlFor="reviewCount" className="text-black text-sm font-medium">
                         {t("analyze.reviewCountLabel")}
                       </label>
@@ -952,6 +979,7 @@ export default function AnalyzePageClient() {
                           setReviewCount(Math.min(1000, Math.max(1, Number.parseInt(e.target.value) || 100)))
                         }
                         className="h-12 text-lg text-black"
+                        disabled={analyzeAllReviews}
                       />
                     </div>
                     <ol className="list-decimal pl-5 mt-1 space-y-1 text-sm text-gray-700">
@@ -977,6 +1005,16 @@ export default function AnalyzePageClient() {
                       className="h-12 text-lg mb-4 text-black"
                     />
                     <div className="space-y-2">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Checkbox
+                          id="analyze-all-reviews"
+                          checked={analyzeAllReviews}
+                          onCheckedChange={(checked) => setAnalyzeAllReviews(checked as boolean)}
+                        />
+                        <label htmlFor="analyze-all-reviews" className="text-black text-sm font-medium">
+                          {t("analyze.analyzeAllReviews")}
+                        </label>
+                      </div>
                       <label htmlFor="reviewCount" className="text-black text-sm font-medium">
                         {t("analyze.reviewCountLabel")}
                       </label>
@@ -991,6 +1029,7 @@ export default function AnalyzePageClient() {
                           setReviewCount(Math.min(1000, Math.max(1, Number.parseInt(e.target.value) || 100)))
                         }
                         className="h-12 text-lg text-black"
+                        disabled={analyzeAllReviews}
                       />
                     </div>
                     <ol className="list-decimal pl-5 mt-1 space-y-1 text-sm text-gray-700">
@@ -1017,6 +1056,16 @@ export default function AnalyzePageClient() {
                       className="h-12 text-lg mb-4 text-black"
                     />
                     <div className="space-y-2">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Checkbox
+                          id="analyze-all-reviews"
+                          checked={analyzeAllReviews}
+                          onCheckedChange={(checked) => setAnalyzeAllReviews(checked as boolean)}
+                        />
+                        <label htmlFor="analyze-all-reviews" className="text-black text-sm font-medium">
+                          {t("analyze.analyzeAllReviews")}
+                        </label>
+                      </div>
                       <label htmlFor="reviewCount" className="text-black text-sm font-medium">
                         {t("analyze.reviewCountLabel")}
                       </label>
@@ -1031,6 +1080,7 @@ export default function AnalyzePageClient() {
                           setReviewCount(Math.min(1000, Math.max(1, Number.parseInt(e.target.value) || 100)))
                         }
                         className="h-12 text-lg text-black"
+                        disabled={analyzeAllReviews}
                       />
                     </div>
                     <ol className="list-decimal pl-5 mt-1 space-y-1 text-sm text-gray-700">
@@ -1056,6 +1106,16 @@ export default function AnalyzePageClient() {
                       className="h-12 text-lg mb-4 text-black"
                     />
                     <div className="space-y-2">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Checkbox
+                          id="analyze-all-reviews"
+                          checked={analyzeAllReviews}
+                          onCheckedChange={(checked) => setAnalyzeAllReviews(checked as boolean)}
+                        />
+                        <label htmlFor="analyze-all-reviews" className="text-black text-sm font-medium">
+                          {t("analyze.analyzeAllReviews")}
+                        </label>
+                      </div>
                       <label htmlFor="reviewCount" className="text-black text-sm font-medium">
                         {t("analyze.reviewCountLabel")}
                       </label>
@@ -1070,6 +1130,7 @@ export default function AnalyzePageClient() {
                           setReviewCount(Math.min(1000, Math.max(1, Number.parseInt(e.target.value) || 100)))
                         }
                         className="h-12 text-lg text-black"
+                        disabled={analyzeAllReviews}
                       />
                     </div>
                     <ol className="list-decimal pl-5 mt-1 space-y-1 text-sm text-gray-700">
@@ -1094,6 +1155,16 @@ export default function AnalyzePageClient() {
                       className="h-12 text-lg mb-4 text-black"
                     />
                     <div className="space-y-2">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Checkbox
+                          id="analyze-all-reviews"
+                          checked={analyzeAllReviews}
+                          onCheckedChange={(checked) => setAnalyzeAllReviews(checked as boolean)}
+                        />
+                        <label htmlFor="analyze-all-reviews" className="text-black text-sm font-medium">
+                          {t("analyze.analyzeAllReviews")}
+                        </label>
+                      </div>
                       <label htmlFor="reviewCount" className="text-black text-sm font-medium">
                         {t("analyze.reviewCountLabel")}
                       </label>
@@ -1108,6 +1179,7 @@ export default function AnalyzePageClient() {
                           setReviewCount(Math.min(1000, Math.max(1, Number.parseInt(e.target.value) || 100)))
                         }
                         className="h-12 text-lg text-black"
+                        disabled={analyzeAllReviews}
                       />
                     </div>
                     <ol className="list-decimal pl-5 mt-1 space-y-1 text-sm text-gray-700">
@@ -1212,12 +1284,20 @@ export default function AnalyzePageClient() {
               {/* Main Content Area for Analysis Results */}
               <div className="flex-grow">
                 <div className="w-full mx-auto mb-8 flex items-center justify-between">
-                  <Button variant="outline" onClick={resetAnalysis} className="gap-2 text-black border-gray-300">
+                  <Button
+                    variant="outline"
+                    onClick={resetAnalysis}
+                    className="gap-2 text-black border-gray-300 bg-transparent"
+                  >
                     <ArrowLeft className="h-4 w-4" />
                     {t("analyze.buttons.newAnalysis")}
                   </Button>
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={handleDownloadPDF} className="gap-2 text-black border-gray-300">
+                    <Button
+                      variant="outline"
+                      onClick={handleDownloadPDF}
+                      className="gap-2 text-black border-gray-300 bg-transparent"
+                    >
                       <Download className="h-4 w-4" />
                       {t("analyze.buttons.downloadPdf")}
                     </Button>

@@ -1,9 +1,10 @@
-"use client" // <-- ADDED THIS LINE TO YOUR ORIGINAL FILE
+"use client"
 
 import Link from "next/link"
 import { Header } from "@/app/components/Header"
 import { Footer } from "@/app/components/Footer"
 import { useTranslation } from "@/app/hooks/useTranslation"
+import DynamicBackgroundAnimation from "@/app/components/DynamicBackgroundAnimation" // Import the new component
 
 export default function HomePageClient() {
   const { t } = useTranslation()
@@ -14,7 +15,12 @@ export default function HomePageClient() {
       <main className="flex-grow pt-24">
         {/* Hero Section */}
         <section className="relative pt-32 pb-24 overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-900/20 via-transparent to-transparent"></div>
+          <div className="absolute inset-0">
+            {/* Existing radial gradient */}
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-900/20 via-transparent to-transparent"></div>
+            {/* New animation component */}
+            <DynamicBackgroundAnimation />
+          </div>
           <div className="max-w-6xl mx-auto px-4 relative z-10">
             <div className="max-w-3xl mx-auto text-center mb-12">
               <h1 className="text-5xl md:text-6xl font-bold mb-6">{t("home.hero.title")}</h1>

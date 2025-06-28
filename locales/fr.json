@@ -332,13 +332,7 @@
       "reviewLimit": "Vous avez dépassé la limite de {{limit}} avis pour votre plan. Vous avez analysé {{count}} avis.",
       "bulkAnalysisUpgrade": "L'analyse groupée est une fonctionnalité premium. Veuillez mettre à niveau votre abonnement pour y accéder.",
       "exportUpgrade": "L'exportation de rapports est une fonctionnalité premium. Veuillez mettre à niveau votre abonnement pour y accéder.",
-      "combineFailed": "Échec de la combinaison des résultats d'analyse.",
-      "gmbHelp": {
-        "title": "Conseils pour l'URL Google My Business :",
-        "tip1": "Assurez-vous que l'URL provient directement de Google Maps (ex: 'google.com/maps/place/...').",
-        "tip2": "Utilisez l'URL 'Partager' ou 'Envoyer' de la fiche d'établissement, pas l'URL de recherche.",
-        "tip3": "Vérifiez que la fiche d'établissement a des avis publics."
-      }
+      "combineFailed": "Échec de la combinaison des résultats d'analyse."
     },
     "usage": {
       "title": "Utilisation des Avis",
@@ -373,7 +367,8 @@
         "customer": "Client",
         "marketing": "Marketing"
       }
-    }
+    },
+    "analyzeAllReviews": "Analyser tous les avis de votre établissement"
   },
   "myEstablishments": {
     "title": "Mes Établissements",
